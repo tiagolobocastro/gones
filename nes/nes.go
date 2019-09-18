@@ -24,8 +24,6 @@ var cpuMappingTable = []memMapEntry{
 	// size should be 8 but then clashes with the next, wtf??
 	{addrRange{0x4018, 0x401F, 0}, devIdAPUIO},
 
-	// probably need to break this down...
-	// this is where the mapper comes into play?
 	{addrRange{0x4020, 0xFFFF, 0}, devIdCART},
 }
 
