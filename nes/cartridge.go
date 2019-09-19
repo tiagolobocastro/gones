@@ -116,7 +116,3 @@ type Cartridge struct {
 
 	mapper *Mapper
 }
-
-func (c *Cartridge) getMappingTable() []busMemMapEntry {
-	return c.mapper.devEntries
-}

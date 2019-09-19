@@ -6,27 +6,6 @@ import (
 	"strings"
 )
 
-// CPU Mapping Table
-// Address range 	Size 	Device
-// $0000-$07FF 	$0800 	2KB internal RAM
-// $0800-$0FFF 	$0800 	Mirrors of $0000-$07FF
-// $1000-$17FF 	$0800
-// $1800-$1FFF 	$0800
-// $2000-$2007 	$0008 	NES PPU registers
-// $2008-$3FFF 	$1FF8 	Mirrors of $2000-2007 (repeats every 8 bytes)
-// $4000-$4017 	$0018 	NES APU and I/O registers
-// $4018-$401F 	$0008 	APU and I/O functionality that is normally disabled. See CPU Test Mode.
-// $4020-$FFFF 	$BFE0 	Cartridge space: PRG ROM, PRG RAM, and mapper registers (See Note)
-var cpuMappingTable = []memMapEntry{
-	{addrRange{0x0000, 0x07FF, 3}, devIdRAM},
-	{addrRange{0x2000, 0x2007, 0x3FF}, devIdPPU},
-	{addrRange{0x4000, 0x4017, 0}, devIdAPU},
-	// size should be 8 but then clashes with the next, wtf??
-	{addrRange{0x4018, 0x401F, 0}, devIdAPUIO},
-
-	{addrRange{0x4020, 0xFFFF, 0}, devIdCART},
-}
-
 func (n *nes) init(cartPath string) {
 	n.bus.init()
 
@@ -35,30 +14,11 @@ func (n *nes) init(cartPath string) {
 	}
 
 	n.ram.init(0x2000)
+	n.vRam.init(0x2000)
 	n.fakeRam.init(0x7)
 
-	n.bus.connect(MapCPUId, n.getDevMapEntry(devIdRAM, &n.ram))
-	n.bus.connect(MapCPUId, n.getDevMapEntry(devIdPPU, &n.fakeRam))
-
-	// connect the cart into the bus only within the CPU devIdCart range
-	n.bus.connectMap(MapCPUId, n.getDevMapEntry(devIdCART, nil).addrRange, n.cart.getMappingTable())
-
 	n.cpu.init(n.bus.getBusInt(MapCPUId), n.verbose)
-}
-
-func (n *nes) getDevMapEntry(devId int, devInt busInt) *busMemMapEntry {
-	for _, entry := range cpuMappingTable {
-		if entry.deviceId == devId {
-			return &busMemMapEntry{
-				busAddrRange: busAddrRange{
-					addrRange: entry.addrRange,
-					size:      entry.end - entry.base,
-				},
-				busInt: devInt,
-			}
-		}
-	}
-	return nil
+	n.ppu.init(n.bus.getBusInt(MapPPUId), n.verbose)
 }
 
 // from hexd from: https://skilldrick.github.io/easy6502/, eg:

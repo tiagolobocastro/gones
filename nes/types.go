@@ -67,11 +67,6 @@ const (
 	ModeIndirectIndexedY
 )
 
-type ppu struct {
-	busInt
-	*bus
-}
-
 type nes struct {
 	bus
 
@@ -79,21 +74,13 @@ type nes struct {
 	ram     ram
 	cart    Cartridge
 	fakeRam ram
-	ppu     ppu
+	ppu     Ppu
+	vRam    ram
 
 	verbose bool
 }
 
-//  deviceId
-const (
-	devIdRAM = iota
-	devIdPPU
-	devIdAPU
-	devIdAPUIO
-	devIdCART
-)
-
 const (
 	MapCPUId = iota
-	//MapPPUId
+	MapPPUId
 )
