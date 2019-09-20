@@ -6,7 +6,11 @@ type ram struct {
 	ram []byte
 }
 
-func (r *ram) init(size uint32) {
+func (r *ram) size() uint16 {
+	return uint16(len(r.ram))
+}
+
+func (r *ram) init(size int) {
 	r.ram = make([]byte, size)
 }
 

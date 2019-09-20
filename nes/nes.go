@@ -19,6 +19,9 @@ func (n *nes) init(cartPath string) {
 
 	n.cpu.init(n.bus.getBusInt(MapCPUId), n.verbose)
 	n.ppu.init(n.bus.getBusInt(MapPPUId), n.verbose)
+
+	n.bus.connect(MapCPUId, &cpuMapper{n})
+	n.bus.connect(MapPPUId, &ppuMapper{n})
 }
 
 // from hexd from: https://skilldrick.github.io/easy6502/, eg:

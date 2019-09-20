@@ -56,7 +56,7 @@ func Test_newNes_RunOpTest(t *testing.T) {
 	testCpuTest(nes, t, ldaIMM)
 	var ldaZPG = cpuTest{code: "0600: a5 bb 00", result: "pc: 0x0603, sp: 0xff, ps: 0x34 (N:0 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), ac: 0x77, x: 0x00, y: 0x00", prefix: func() { nes.ram.ram[0xbb] = 0x77 }}
 	testCpuTest(nes, t, ldaZPG)
-	var ldaABS = cpuTest{code: "0600: ad 88 18 00", result: "pc: 0x0604, sp: 0xff, ps: 0xb4 (N:1 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), ac: 0x88, x: 0x00, y: 0x00", prefix: func() { nes.ram.ram[0x1888] = 0x88 }}
+	var ldaABS = cpuTest{code: "0600: ad 88 18 00", result: "pc: 0x0604, sp: 0xff, ps: 0xb4 (N:1 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), ac: 0x88, x: 0x00, y: 0x00", prefix: func() { nes.ram.ram[0x1888%0x800] = 0x88 }}
 	testCpuTest(nes, t, ldaABS)
 	var ldaABX = cpuTest{code: "0600: bd fe ff 00", result: "pc: 0x0604, sp: 0xff, ps: 0xb4 (N:1 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), ac: 0x99, x: 0x0d, y: 0x00", prefix: func() {
 		nes.ram.ram[0x0B] = 0x99
@@ -152,7 +152,7 @@ func Test_newNes_RunOpTest(t *testing.T) {
 	testCpuTest(nes, t, ldyIMM)
 	var ldyZPG = cpuTest{code: "0600: a4 bb 00", result: "pc: 0x0603, sp: 0xff, ps: 0x34 (N:0 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), ac: 0x00, x: 0x00, y: 0x77", prefix: func() { nes.ram.ram[0xbb] = 0x77 }}
 	testCpuTest(nes, t, ldyZPG)
-	var ldyABS = cpuTest{code: "0600: ac 88 18 00", result: "pc: 0x0604, sp: 0xff, ps: 0xb4 (N:1 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), ac: 0x00, x: 0x00, y: 0x88", prefix: func() { nes.ram.ram[0x1888] = 0x88 }}
+	var ldyABS = cpuTest{code: "0600: ac 88 18 00", result: "pc: 0x0604, sp: 0xff, ps: 0xb4 (N:1 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), ac: 0x00, x: 0x00, y: 0x88", prefix: func() { nes.ram.ram[0x1888%0x800] = 0x88 }}
 	testCpuTest(nes, t, ldyABS)
 	var ldyABX = cpuTest{code: "0600: bc fe ff 00", result: "pc: 0x0604, sp: 0xff, ps: 0xb4 (N:1 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), ac: 0x00, x: 0x0d, y: 0x99", prefix: func() {
 		nes.ram.ram[0x0B] = 0x99

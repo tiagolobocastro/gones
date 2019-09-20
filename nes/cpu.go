@@ -25,7 +25,7 @@ type Context struct {
 }
 
 type Cpu struct {
-	busInt
+	busExtInt
 
 	ins [256]Instruction
 
@@ -40,14 +40,14 @@ type Cpu struct {
 	disableBreak bool
 }
 
-func (c *Cpu) init(busInt busInt, verbose bool) {
+func (c *Cpu) init(busInt busExtInt, verbose bool) {
 	c.verbose = verbose
 	c.disableBreak = true
 
 	c.rg.init()
 	c.setupIns()
 
-	c.busInt = busInt
+	c.busExtInt = busInt
 }
 
 func (c *Cpu) tick() {

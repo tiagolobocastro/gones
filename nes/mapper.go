@@ -12,11 +12,24 @@ type Mapper struct {
 	mType byte
 }
 
-func newMapper(cart *Cartridge, mapperId byte) *Mapper {
+//CPU $6000-$7FFF: Family Basic only: PRG RAM, mirrored as necessary to fill entire 8 KiB window, write protectable with an external switch
+//CPU $8000-$BFFF: First 16 KB of ROM.
+//CPU $C000-$FFFF: Last 16 KB of ROM (NROM-256) or mirror of $8000-$BFFF (NROM-128).
+func (m *Mapper) read8(addr uint16) uint8 {
+	switch {
+	case addr < 0x2000:
+		return m.cart.chr.read8(addr)
+	case addr < 0x8000:
+		return m.cart.ram.read8(addr)
+	case addr < 0xC000:
+		return m.cart.prg.read8(addr % m.cart.prg.size())
+	case addr <= 0xFFFF:
+		return m.cart.prg.read8(addr % m.cart.prg.size())
+	}
+	return 0
+}
+func (m *Mapper) write8(addr uint16, val uint) {
 
-	m := &Mapper{cart: cart, mType: mapperId}
-
-	return m
 }
 
 // CPU Mapping Table
@@ -47,7 +60,25 @@ func (m *cpuMapper) read8(addr uint16) uint8 {
 	case addr < 0x4020:
 		return 0 // APU
 
-		// case addr <= 0xFFFF: return m.nes.cart.rea
+	case addr <= 0xFFFF:
+		return m.nes.cart.mapper.read8(addr)
 	}
 	return 0
+}
+
+func (m *cpuMapper) write8(addr uint16, val uint8) {
+	switch {
+	case addr < 0x2000:
+		m.nes.ram.write8(addr%2048, val)
+
+	case addr < 0x4000:
+		m.nes.ppu.write8(addr%8, val)
+
+	case addr < 0x4018:
+		// APU and I-O
+	case addr < 0x4020:
+		// APU
+
+		// case addr <= 0xFFFF: m.nes.cart.write
+	}
 }

@@ -48,3 +48,19 @@ func (m *ppuMapper) read8(addr uint16) uint8 {
 	}
 	return 0
 }
+
+func (m *ppuMapper) write8(addr uint16, val uint8) {
+	switch {
+	// PPU VRAM or controlled via the Cartridge Mapper
+	case addr < 0x3000:
+		m.nes.vRam.write8(addr%2048, val)
+	case addr < 0x3F00:
+		m.nes.vRam.write8(addr%2048, val)
+
+	// internal palette control
+	case addr < 0x3F20:
+		m.nes.ppu.palette.write8(addr%32, val)
+	case addr < 0x4000:
+		m.nes.ppu.palette.write8(addr%32, val)
+	}
+}

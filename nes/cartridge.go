@@ -29,7 +29,7 @@ func (c *Cartridge) defaultInit() error {
 	c.chr.init(16384)
 	c.ram.init(16384)
 
-	c.mapper = newMapper(c, mapperNROM)
+	c.mapper = &Mapper{cart: c, mType: mapperNROM}
 
 	return nil
 }
@@ -84,12 +84,12 @@ func (c *Cartridge) init(cartPath string) error {
 		}
 	}
 
-	c.prg.init(uint32(header.PRG_ROMSize) * 16384)
+	c.prg.init(int(header.PRG_ROMSize) * 16384)
 	if _, err = io.ReadFull(file, c.prg.rom); err != nil {
 		return err
 	}
 
-	c.chr.init(uint32(header.CHR_ROMSize) * 8192)
+	c.chr.init(int(header.CHR_ROMSize) * 8192)
 	if _, err = io.ReadFull(file, c.chr.rom); err != nil {
 		return err
 	}
@@ -99,10 +99,9 @@ func (c *Cartridge) init(cartPath string) error {
 		c.chr.init(8192)
 	}
 
-	c.ram.init(uint32(header.Flags8))
+	c.ram.init(int(header.Flags8))
 
-	c.mapper = newMapper(c, mapper)
-
+	c.mapper = &Mapper{cart: c, mType: mapper}
 	return nil
 }
 
@@ -113,6 +112,8 @@ type Cartridge struct {
 	ram     *ram
 	mirror  byte
 	battery byte
+	prgSize byte
+	chrSize byte
 
 	mapper *Mapper
 }

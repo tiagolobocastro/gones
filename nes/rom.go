@@ -21,6 +21,10 @@ func (r *rom) write16(uint16, uint16) {
 	panic("rom is not writable")
 }
 
-func (r *rom) init(size uint32) {
+func (r *rom) size() uint16 {
+	return uint16(len(r.rom))
+}
+
+func (r *rom) init(size int) {
 	r.rom = make([]byte, size, size)
 }
