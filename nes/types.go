@@ -70,12 +70,11 @@ const (
 type nes struct {
 	bus
 
-	cpu     Cpu
-	ram     ram
-	cart    Cartridge
-	fakeRam ram
-	ppu     Ppu
-	vRam    ram
+	cpu  Cpu
+	ram  ram
+	cart Cartridge
+	ppu  Ppu
+	vRam ram
 
 	verbose bool
 }

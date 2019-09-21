@@ -64,3 +64,13 @@ func (m *ppuMapper) write8(addr uint16, val uint8) {
 		m.nes.ppu.palette.write8(addr%32, val)
 	}
 }
+
+// cpu can read from the ppu through the control registers
+
+// BusInt
+func (p *Ppu) read8(addr uint16) uint8 {
+	return 0
+}
+func (p *Ppu) write8(addr uint16, val uint8) {
+
+}

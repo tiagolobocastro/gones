@@ -50,6 +50,11 @@ func (c *Cpu) init(busInt busExtInt, verbose bool) {
 	c.busExtInt = busInt
 }
 
+func (c *Cpu) reset() {
+	c.rg.init()
+	c.rg.spc.pc.write(c.read16(0xFFFC))
+}
+
 func (c *Cpu) tick() {
 
 	c.clk++

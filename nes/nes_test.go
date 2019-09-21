@@ -1,6 +1,7 @@
 package gones
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -27,8 +28,9 @@ func cmpMem(nes *nes, t *testing.T, checkAddr uint16, expectedVal uint8) {
 }
 
 func testCpuTest(nes *nes, t *testing.T, cpuTest cpuTest) {
-	nes.reset()
 	nes.loadEasyCode(cpuTest.code)
+	nes.reset()
+
 	if cpuTest.prefix != nil {
 		cpuTest.prefix()
 	}
@@ -36,7 +38,7 @@ func testCpuTest(nes *nes, t *testing.T, cpuTest cpuTest) {
 
 	nes.Run()
 
-	if nes.cpu.rg.String() != cpuTest.result+"\n" {
+	if strings.TrimSuffix(nes.cpu.rg.String(), "\n") != cpuTest.result {
 		t.Errorf("[%s][%s] test failed!\nGot:\t\t%s\nExpected:\t%s", t.Name(), cpuTest.name, nes.cpu.rg.String(), cpuTest.result)
 	}
 

@@ -2,8 +2,6 @@ package gones
 
 import (
 	"fmt"
-	"io"
-	"strings"
 )
 
 func (n *nes) init(cartPath string) {
@@ -13,44 +11,16 @@ func (n *nes) init(cartPath string) {
 		panic("ups...")
 	}
 
-	n.ram.init(0x2000)
-	n.vRam.init(0x2000)
-	n.fakeRam.init(0x7)
+	n.ram.init(0x800)
+	n.vRam.init(0x800)
 
 	n.cpu.init(n.bus.getBusInt(MapCPUId), n.verbose)
 	n.ppu.init(n.bus.getBusInt(MapPPUId), n.verbose)
 
 	n.bus.connect(MapCPUId, &cpuMapper{n})
 	n.bus.connect(MapPPUId, &ppuMapper{n})
-}
 
-// from hexd from: https://skilldrick.github.io/easy6502/, eg:
-//var easy6502Code string =  `0600: a9 01 85 02 a9 cc 8d 00 01 a9 01 aa a1 00 00 00
-// 							0610: a9 05 aa 8e 00 02 a9 05 8d 01 02 a9 08 8d 02 02`
-
-func (n *nes) loadEasyCode(code string) {
-
-	findAddr := true
-	for _, line := range strings.Split(strings.TrimSuffix(code, "\n"), "\n") {
-		addr := 0
-		var bt [16]int
-		ns, err := fmt.Sscanf(line, "%x: %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x ",
-			&addr, &bt[0], &bt[1], &bt[2], &bt[3], &bt[4], &bt[5], &bt[6], &bt[7],
-			&bt[8], &bt[9], &bt[10], &bt[11], &bt[12], &bt[13], &bt[14], &bt[15])
-		if err != nil && err != io.EOF {
-			fmt.Printf("N: %x, E: %+v\n", ns, err)
-		}
-
-		if findAddr {
-			findAddr = false
-			n.cpu.rg.spc.pc.val = uint16(addr)
-		}
-
-		for _, b := range bt {
-			n.ram.ram[addr] = byte(b)
-			addr += 1
-		}
-	}
+	n.cpu.reset()
 }
 
 func (n *nes) stats() {
@@ -80,7 +50,7 @@ func (n *nes) Run() {
 }
 
 func (n *nes) reset() {
-	n.init("")
+	n.cpu.reset()
 }
 
 func NewNES(verbose bool, cart string) *nes {

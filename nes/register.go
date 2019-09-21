@@ -146,7 +146,7 @@ func (r *register16) read() uint16 {
 }
 
 func (r *spc_registers) init(name string) {
-	r.pc.init("pc", 0xC000)
+	r.pc.init("pc", 0xFFFC)
 	r.sp.init("sp", 0xFF)
 	r.ps.init("ps", bB|bI|bZ|bE)
 	r.name = name

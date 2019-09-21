@@ -27,5 +27,5 @@ func (r *ram) read16(addr uint16) uint16 {
 }
 func (r *ram) write16(addr uint16, val uint16) {
 	r.write8(addr, uint8(val&0xFF))
-	r.write8(addr+1, uint8(val&0xFF00)>>8)
+	r.write8(addr+1, uint8((val&0xFF00)>>8))
 }

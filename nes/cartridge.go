@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 )
 
 const NESMagicConstant = 0x1A53454E
@@ -25,8 +26,8 @@ type iNESHeader struct {
 }
 
 func (c *Cartridge) defaultInit() error {
-	c.prg.init(16384 * 4)
-	c.chr.init(16384)
+	c.prg.init(16384*4, true)
+	c.chr.init(16384, true)
 	c.ram.init(16384)
 
 	c.mapper = &Mapper{cart: c, mType: mapperNROM}
@@ -84,19 +85,19 @@ func (c *Cartridge) init(cartPath string) error {
 		}
 	}
 
-	c.prg.init(int(header.PRG_ROMSize) * 16384)
+	c.prg.init(int(header.PRG_ROMSize)*16384, false)
 	if _, err = io.ReadFull(file, c.prg.rom); err != nil {
 		return err
 	}
 
-	c.chr.init(int(header.CHR_ROMSize) * 8192)
+	c.chr.init(int(header.CHR_ROMSize)*8192, false)
 	if _, err = io.ReadFull(file, c.chr.rom); err != nil {
 		return err
 	}
 
 	// provide chr-rom/ram if not in file
 	if header.CHR_ROMSize == 0 {
-		c.chr.init(8192)
+		c.chr.init(8192, false)
 	}
 
 	c.ram.init(int(header.Flags8))
@@ -116,4 +117,32 @@ type Cartridge struct {
 	chrSize byte
 
 	mapper *Mapper
+}
+
+// from hexd from: https://skilldrick.github.io/easy6502/, eg:
+//var easy6502Code string =  `0600: a9 01 85 02 a9 cc 8d 00 01 a9 01 aa a1 00 00 00
+// 							0610: a9 05 aa 8e 00 02 a9 05 8d 01 02 a9 08 8d 02 02`
+
+func (n *nes) loadEasyCode(code string) {
+	findAddr := true
+	for _, line := range strings.Split(strings.TrimSuffix(code, "\n"), "\n") {
+		addr := uint16(0)
+		var bt [16]int
+		ns, err := fmt.Sscanf(line, "%x: %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x ",
+			&addr, &bt[0], &bt[1], &bt[2], &bt[3], &bt[4], &bt[5], &bt[6], &bt[7],
+			&bt[8], &bt[9], &bt[10], &bt[11], &bt[12], &bt[13], &bt[14], &bt[15])
+		if err != nil && err != io.EOF {
+			fmt.Printf("N: %x, E: %+v\n", ns, err)
+		}
+
+		if findAddr {
+			findAddr = false
+			n.cart.prg.write16(0xFFFC, addr)
+		}
+
+		for _, b := range bt {
+			n.cpu.write8(addr, uint8(b))
+			addr += 1
+		}
+	}
 }

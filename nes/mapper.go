@@ -22,9 +22,9 @@ func (m *Mapper) read8(addr uint16) uint8 {
 	case addr < 0x8000:
 		return m.cart.ram.read8(addr)
 	case addr < 0xC000:
-		return m.cart.prg.read8(addr % m.cart.prg.size())
+		return m.cart.prg.read8(uint16(int(addr) % m.cart.prg.size()))
 	case addr <= 0xFFFF:
-		return m.cart.prg.read8(addr % m.cart.prg.size())
+		return m.cart.prg.read8(uint16(int(addr) % m.cart.prg.size()))
 	}
 	return 0
 }
@@ -53,7 +53,7 @@ func (m *cpuMapper) read8(addr uint16) uint8 {
 		return m.nes.ram.read8(addr % 2048)
 
 	case addr < 0x4000:
-		return m.nes.ppu.read8(addr % 8)
+		return m.nes.ppu.read8(addr /* % 8 */)
 
 	case addr < 0x4018:
 		return 0 // read from APU and I-O
