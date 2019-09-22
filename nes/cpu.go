@@ -68,6 +68,19 @@ func (c *Cpu) Log(a ...interface{}) {
 	}
 }
 
+func (c *Cpu) LogAf(align int, format string, a ...interface{}) {
+	if c.verbose {
+		n, _ := fmt.Printf(format, a...)
+		if align > n {
+			s := ""
+			for i := n; i < align; i++ {
+				s = fmt.Sprintf("%s ", s)
+			}
+			fmt.Printf(s)
+		}
+	}
+}
+
 func (c *Cpu) Logf(format string, a ...interface{}) {
 	if c.verbose {
 		fmt.Printf(format, a...)
@@ -86,7 +99,7 @@ func (c *Cpu) exec() bool {
 		return false
 	}
 
-	c.Logf("Executing instruction: 0x%x - %s ::", opCode, c.curr.ins.opName)
+	c.LogAf(25, "0x%04x: 0x%x - %s %s", c.rg.spc.pc.val, opCode, c.curr.ins.opName, c.getOperandString(c.curr.ins))
 	c.curr.ins.eval()
 	c.rg.spc.pc.val += uint16(c.curr.ins.opLength)
 
@@ -123,6 +136,42 @@ func (c *Cpu) brk() {
 
 	// needs more work, don't really understand it yet...
 	c.rg.spc.pc.write(c.read16(0xFFFE))
+}
+
+func (c *Cpu) getOperandString(ins *Instruction) string {
+	op1 := uint16(c.curr.opr&0xFF00) >> 8
+	op12 := uint16((c.curr.opr & 0xFFFF00) >> 8)
+	str := ""
+	switch ins.addrMode {
+	case ModeImplied:
+	case ModeImmediate:
+		str = fmt.Sprintf("#$%02x", op1)
+	case ModeZeroPage:
+		str = fmt.Sprintf("$%02x", op1)
+	case ModeIndexedZeroPageX:
+		str = fmt.Sprintf("$%02x, x", op1)
+	case ModeIndexedZeroPageY:
+		str = fmt.Sprintf("$%02x, y", op1)
+	case ModeAbsolute:
+		str = fmt.Sprintf("$%04x", op12)
+	case ModeIndexedAbsoluteX:
+		str = fmt.Sprintf("$%04x, x", op12)
+	case ModeIndexedAbsoluteY:
+		str = fmt.Sprintf("$%04x, y", op12)
+	case ModeIndexedIndirectX:
+		str = fmt.Sprintf("($%04x, x)", op12)
+	case ModeIndirectIndexedY:
+		str = fmt.Sprintf("($%04x, y)", op12)
+	case ModeIndirect:
+		str = fmt.Sprintf("($%04x)", op12)
+	case ModeRelative:
+		str = fmt.Sprintf("#$%02x", op1)
+	case ModeInvalid:
+		fallthrough
+	default:
+		panic("Invalid instruction address mode")
+	}
+	return str
 }
 
 func (c *Cpu) getOperandAddr(ins *Instruction) uint16 {

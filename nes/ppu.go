@@ -5,6 +5,8 @@ type Ppu struct {
 
 	clk int64
 
+	regs [8]register
+
 	palette ppuPalette
 
 	verbose      bool
@@ -69,8 +71,46 @@ func (m *ppuMapper) write8(addr uint16, val uint8) {
 
 // BusInt
 func (p *Ppu) read8(addr uint16) uint8 {
+	if addr < 0x4000 {
+		// incomplete decoding means 0x2000-0x2007 are mirrored every 8 bytes
+		addr = 0x2000 + addr%8
+	}
+
+	switch addr {
+	// PPU Status (PPUSTATUS)
+	case 0x2002:
+	// PPU OAM Data (OAMDATA)
+	case 0x2004:
+	// PPU Data (PPUDATA)
+	case 0x2007:
+	}
+
 	return 0
 }
 func (p *Ppu) write8(addr uint16, val uint8) {
+	if addr < 0x4000 {
+		// incomplete decoding means 0x2000-0x2007 are mirrored every 8 bytes
+		addr = 0x2000 + addr%8
+	}
 
+	switch addr {
+	// PPU Control (PPUCTRL)
+	case 0x2000:
+	// PPU Mask (PPUMASK)
+	case 0x2001:
+	// PPU Status (PPUSTATUS)
+	case 0x2002:
+	// PPU OAM Address (OAMADDR)
+	case 0x2003:
+	// PPU OAM Data (OAMDATA)
+	case 0x2004:
+	// PPU Scrolling (PPUSCROLL)
+	case 0x2005:
+	// PPU Address (PPUADDR)
+	case 0x2006:
+	// PPU Data (PPUDATA)
+	case 0x2007:
+	// PPU OAM DMA (OAMDMA)
+	case 0x4014:
+	}
 }

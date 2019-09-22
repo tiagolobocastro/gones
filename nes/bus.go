@@ -4,8 +4,6 @@ type busInt interface {
 	// Data Operations
 	read8(uint16) uint8
 	write8(uint16, uint8)
-	//read16(uint16) uint16
-	//write16(uint16, uint16)
 }
 
 type busExtInt interface {
@@ -44,6 +42,7 @@ func (b *BusMapInt) write16(addr uint16, val uint16) {
 }
 
 func (b *bus) init() {
+	// CPU and PPU mappers
 	b.maps = make([]BusMapInt, 2)
 }
 
