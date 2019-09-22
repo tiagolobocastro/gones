@@ -50,7 +50,7 @@ type cpuMapper struct {
 func (m *cpuMapper) read8(addr uint16) uint8 {
 	switch {
 	case addr < 0x2000:
-		return m.nes.ram.read8(addr)
+		return m.nes.ram.read8(addr % 2048)
 
 	case addr < 0x4000:
 		return m.nes.ppu.read8(addr)
