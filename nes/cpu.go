@@ -99,7 +99,7 @@ func (c *Cpu) exec() bool {
 		return false
 	}
 
-	c.LogAf(25, "0x%04x: 0x%x - %s %s", c.rg.spc.pc.val, opCode, c.curr.ins.opName, c.getOperandString(c.curr.ins))
+	c.LogAf(30, "0x%04x: 0x%02x - %s %s", c.rg.spc.pc.val, opCode, c.curr.ins.opName, c.getOperandString(c.curr.ins))
 	c.curr.ins.eval()
 	c.rg.spc.pc.val += uint16(c.curr.ins.opLength)
 
