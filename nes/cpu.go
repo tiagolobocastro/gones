@@ -94,7 +94,7 @@ func (c *Cpu) exec() bool {
 	c.curr.ins = &c.ins[opCode]
 
 	if c.curr.ins.opLength == 0 {
-		c.Logf("Read 0x%x - %s - which is an invalid instruction!\n", opCode, c.curr.ins.opName)
+		c.Logf("Read 0x%02x - %s - which is an invalid instruction!\n", opCode, c.curr.ins.opName)
 		c.rg.spc.pc.val += uint16(c.curr.ins.opLength)
 		return false
 	}

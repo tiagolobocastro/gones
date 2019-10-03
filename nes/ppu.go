@@ -5,7 +5,7 @@ type Ppu struct {
 
 	clk int64
 
-	regs [8]register
+	regs [9]register
 
 	palette ppuPalette
 
@@ -79,10 +79,13 @@ func (p *Ppu) read8(addr uint16) uint8 {
 	switch addr {
 	// PPU Status (PPUSTATUS)
 	case 0x2002:
+		return p.regs[PPUSTATUS].read()
 	// PPU OAM Data (OAMDATA)
 	case 0x2004:
+		return p.regs[OAMDATA].read()
 	// PPU Data (PPUDATA)
 	case 0x2007:
+		return p.regs[PPUDATA].read()
 	}
 
 	return 0
@@ -96,21 +99,30 @@ func (p *Ppu) write8(addr uint16, val uint8) {
 	switch addr {
 	// PPU Control (PPUCTRL)
 	case 0x2000:
+		p.regs[PPUCTRL].write(val)
 	// PPU Mask (PPUMASK)
 	case 0x2001:
+		p.regs[PPUMASK].write(val)
 	// PPU Status (PPUSTATUS)
 	case 0x2002:
+		p.regs[PPUSTATUS].write(val)
 	// PPU OAM Address (OAMADDR)
 	case 0x2003:
+		p.regs[OAMADDR].write(val)
 	// PPU OAM Data (OAMDATA)
 	case 0x2004:
+		p.regs[OAMDATA].write(val)
 	// PPU Scrolling (PPUSCROLL)
 	case 0x2005:
+		p.regs[PPUSCROLL].write(val)
 	// PPU Address (PPUADDR)
 	case 0x2006:
+		p.regs[PPUADDR].write(val)
 	// PPU Data (PPUDATA)
 	case 0x2007:
+		p.regs[PPUDATA].write(val)
 	// PPU OAM DMA (OAMDMA)
 	case 0x4014:
+		p.regs[OAMDMA].write(val)
 	}
 }
