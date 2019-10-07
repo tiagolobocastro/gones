@@ -3,20 +3,39 @@ package gones
 type Ppu struct {
 	busInt
 
-	clk int64
+	cycle    int
+	scanLine int
+	verbose  bool
 
+	// cpu mapper
 	regs [9]register
+
+	// internal registers: http://wiki.nesdev.com/w/index.php/PPU_scrolling
+	vRAM    register16 // Current VRAM address (15 bits)
+	tRAM    register16 // Temporary VRAM address (15 bits); can also be thought of as the address of the top left onscreen tile.
+	xFine   register   // Fine X scroll (3 bits)
+	wToggle register   // First or second write toggle (1 bit)
 
 	palette ppuPalette
 
-	verbose      bool
-	disableBreak bool
+	interrupts iInterrupt
 }
 
-func (p *Ppu) init(busInt busInt, verbose bool) {
+func (p *Ppu) init(busInt busInt, verbose bool, interrupts iInterrupt) {
 	p.verbose = verbose
-
 	p.busInt = busInt
+	p.interrupts = interrupts
+	p.cycle = 0
+	p.scanLine = 0
+
+	p.vRAM.init("v", 0)
+	p.tRAM.init("t", 0)
+	p.xFine.init("x", 0)
+	p.wToggle.init("w", 0)
+}
+
+func (p *Ppu) reset() {
+	p.init(p.busInt, p.verbose, p.interrupts)
 }
 
 // PPU Mapping Table
@@ -67,6 +86,62 @@ func (m *ppuMapper) write8(addr uint16, val uint8) {
 	}
 }
 
+// interrupt
+// only look at the CPU NMI for now
+// need to implement the interrupt delay as well since the cpu and ppu and not on the same clock
+func (p *Ppu) raise(flag uint8) {
+	if (flag & cpuIntNMI) != 0 {
+		p.regs[PPUSTATUS].val |= 0x80
+
+		if p.getNMIVertical() == 1 {
+			p.interrupts.raise(flag & cpuIntNMI)
+		}
+	}
+}
+func (p *Ppu) clear(flag uint8) {
+	if (flag & cpuIntNMI) != 0 {
+		p.regs[PPUSTATUS].val &= 0x7F
+		p.interrupts.clear(flag & cpuIntNMI)
+	}
+}
+
+func (p *Ppu) tick() {
+	p.cycle += 1
+
+	if p.cycle > 340 {
+		p.scanLine += 1
+		p.cycle = 0
+
+		if p.scanLine == 241 {
+			p.raise(cpuIntNMI)
+		}
+
+		if p.scanLine > 260 {
+			p.scanLine = 0
+			// may already be cleared as reading from PPSTATUS will do so
+			p.clear(cpuIntNMI)
+		}
+	}
+}
+
+func (p *Ppu) clock() {
+
+	// 3 ppu ticks per 1 cpu
+	p.exec()
+	p.exec()
+	p.exec()
+}
+
+func (p *Ppu) exec() {
+
+	// first do the work, and only then tick?
+
+	// let's add a simple sprite display or something like that
+	// so let's do the bare minimum for the ppu setup
+
+	p.tick()
+}
+
 // cpu can read from the ppu through the control registers
 
 // BusInt
@@ -77,9 +152,9 @@ func (p *Ppu) read8(addr uint16) uint8 {
 	}
 
 	switch addr {
-	// PPU Status (PPUSTATUS)
+	// PPU Status (PPUSTATUS) - RDONLY
 	case 0x2002:
-		return p.regs[PPUSTATUS].read()
+		return p.getSTATUS()
 	// PPU OAM Data (OAMDATA)
 	case 0x2004:
 		return p.regs[OAMDATA].read()
@@ -97,31 +172,28 @@ func (p *Ppu) write8(addr uint16, val uint8) {
 	}
 
 	switch addr {
-	// PPU Control (PPUCTRL)
+	// PPU Control (PPUCTRL) - WRONLY
 	case 0x2000:
 		p.regs[PPUCTRL].write(val)
-	// PPU Mask (PPUMASK)
+	// PPU Mask (PPUMASK) - WRONLY
 	case 0x2001:
 		p.regs[PPUMASK].write(val)
-	// PPU Status (PPUSTATUS)
-	case 0x2002:
-		p.regs[PPUSTATUS].write(val)
-	// PPU OAM Address (OAMADDR)
+	// PPU OAM Data (OAMADDR) - WRONLY
 	case 0x2003:
 		p.regs[OAMADDR].write(val)
 	// PPU OAM Data (OAMDATA)
 	case 0x2004:
 		p.regs[OAMDATA].write(val)
-	// PPU Scrolling (PPUSCROLL)
+	// PPU Scrolling (PPUSCROLL) - WRONLY
 	case 0x2005:
 		p.regs[PPUSCROLL].write(val)
-	// PPU Address (PPUADDR)
+	// PPU Address (PPUADDR) - WRONLY
 	case 0x2006:
-		p.regs[PPUADDR].write(val)
+		p.writePPUAddr(val)
 	// PPU Data (PPUDATA)
 	case 0x2007:
-		p.regs[PPUDATA].write(val)
-	// PPU OAM DMA (OAMDMA)
+		p.writePPUData(val)
+	// PPU OAM DMA (OAMDMA) - WRONLY
 	case 0x4014:
 		p.regs[OAMDMA].write(val)
 	}

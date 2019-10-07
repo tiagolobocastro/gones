@@ -128,11 +128,34 @@ VSO. ....
 
 func (p *Ppu) getSTATUS() uint8 {
 	val := p.regs[PPUSTATUS].val
-	p.regs[PPUSTATUS].val = val & 0x7F // clear vlank
-	// nmi stuff
+	p.clear(cpuIntNMI) // clear vblank
+	p.wToggle.val = 0
 	// Race Condition Warning: Reading PPUSTATUS within two cycles of the start of vertical blank will return 0
 	// in bit 7 but clear the latch anyway, causing NMI to not occur that frame. See NMI and PPU_frame_timing for details.
 	return val
+}
+
+// yeah, these should really be func(ppu) assigned to the cpu mapped registers
+func (p *Ppu) writePPUAddr(val uint8) {
+	if p.wToggle.val == 0 {
+		// http://wiki.nesdev.com/w/index.php/PPU_scrolling:
+		// t: .FEDCBA ........ = d: ..FEDCBA
+		// t: X...... ........ = 0
+		// w:                  = 1
+		p.tRAM.val = (p.tRAM.val & 0x80FF) | ((uint16(val) & 0x3F) << 8)
+		p.wToggle.val = 1
+	} else {
+		// t: ....... HGFEDCBA = d: HGFEDCBA
+		// v                   = t
+		// w:                  = 0
+		p.tRAM.val = (p.tRAM.val & 0xFF00) | uint16(val)
+		p.vRAM.val = p.tRAM.val
+		p.wToggle.val = 0
+	}
+}
+
+func (p *Ppu) writePPUData(val uint8) {
+	p.busInt.write8(p.vRAM.val, val)
 }
 
 func (p *Ppu) writeOAMData(val uint8) {

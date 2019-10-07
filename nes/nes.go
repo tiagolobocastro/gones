@@ -15,7 +15,7 @@ func (n *nes) init(cartPath string) {
 	n.vRam.init(0x800)
 
 	n.cpu.init(n.bus.getBusInt(MapCPUId), n.verbose)
-	n.ppu.init(n.bus.getBusInt(MapPPUId), n.verbose)
+	n.ppu.init(n.bus.getBusInt(MapPPUId), n.verbose, &n.cpu)
 
 	n.bus.connect(MapCPUId, &cpuMapper{n})
 	n.bus.connect(MapPPUId, &ppuMapper{n})
@@ -45,7 +45,14 @@ func (n *nes) stats() {
 }
 
 func (n *nes) Run() {
-	for n.cpu.exec() {
+	for {
+		// need to sort out this naming
+		n.cpu.exec()
+		n.ppu.clock()
+
+		if n.cpu.curr.ins.opName == "BRK" {
+			break
+		}
 	}
 }
 

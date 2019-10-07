@@ -24,8 +24,27 @@ type Context struct {
 	opr uint32
 }
 
+const (
+	cpuIntNMI = 1
+	cpuIntIRQ = 2
+)
+
+type interrupt struct {
+	flags uint8
+}
+
+// interrupt
+func (c *Cpu) raise(flag uint8) {
+	c.interrupts |= flag
+}
+
+func (c *Cpu) clear(flag uint8) {
+	c.interrupts &= flag ^ 0xFF
+}
+
 type Cpu struct {
 	busExtInt
+	interrupt
 
 	ins [256]Instruction
 
@@ -38,6 +57,9 @@ type Cpu struct {
 
 	verbose      bool
 	disableBreak bool
+
+	inInt      bool
+	interrupts uint8
 }
 
 func (c *Cpu) init(busInt busExtInt, verbose bool) {
@@ -52,6 +74,7 @@ func (c *Cpu) init(busInt busExtInt, verbose bool) {
 
 func (c *Cpu) reset() {
 	c.rg.init()
+	c.inInt = false
 	c.rg.spc.pc.write(c.read16(0xFFFC))
 }
 
@@ -87,7 +110,25 @@ func (c *Cpu) Logf(format string, a ...interface{}) {
 	}
 }
 
+func (c *Cpu) nmi() {
+	// do the other ones stay clear?? research this...
+	c.interrupts &= 0xFE
+	c._push16(c.rg.spc.pc.read())
+	c.php()
+	c.rg.spc.pc.write(c.read16(0xFFFA))
+	c.inInt = true
+	c.clk += 7
+}
+
 func (c *Cpu) exec() bool {
+
+	// increment now or at the end?
+	c.clk += 1
+
+	switch c.interrupts {
+	case cpuIntNMI:
+		c.nmi()
+	}
 
 	c.curr.opr = c.fetch()
 	opCode := c.curr.opr & 0xFF
@@ -383,7 +424,9 @@ func (c *Cpu) rts() {
 
 func (c *Cpu) rti() {
 	c.plp()
-	c.rts()
+	c.rg.spc.pc.write(c._pull16() - 1) // ?? -1??
+	c.inInt = false
+	c.clk += 7
 }
 
 func (c *Cpu) nop() {}

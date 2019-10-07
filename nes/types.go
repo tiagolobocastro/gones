@@ -83,3 +83,8 @@ const (
 	MapCPUId = iota
 	MapPPUId
 )
+
+type iInterrupt interface {
+	raise(uint8)
+	clear(uint8)
+}
