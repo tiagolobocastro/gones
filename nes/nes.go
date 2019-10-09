@@ -21,6 +21,8 @@ func (n *nes) init(cartPath string) {
 	n.bus.connect(MapPPUId, &ppuMapper{n})
 
 	n.cpu.reset()
+
+	n.screen.init(n)
 }
 
 func (n *nes) stats() {

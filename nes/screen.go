@@ -1,27 +1,79 @@
 package gones
 
 import (
-	"fmt"
-	"image/color"
-	_ "image/png" // ouch!
-	"log"
-	"os"
-
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/pixelgl"
 	"golang.org/x/image/colornames"
+	"image/color"
+	_ "image/png" // ouch! needs to be here
+	"log"
+	"os"
+	"runtime"
 )
 
-func run() {
+type screen struct {
+	window *pixelgl.Window
+	sprite *pixel.Sprite
+
+	nes *nes
+}
+
+func (s *screen) init(nes *nes) {
+	s.nes = nes
+	s.addSprite()
+	go func() {
+		runtime.LockOSThread()
+		pixelgl.Run(s.run)
+		os.Exit(0)
+	}()
+}
+
+func (s *screen) run() {
+
 	cfg := pixelgl.WindowConfig{
-		Title:  "Pixel Rocks!",
+		Title:  "GoNes",
 		Bounds: pixel.R(0, 0, 1024, 768),
 		VSync:  true,
 	}
-	win, err := pixelgl.NewWindow(cfg)
+	window, err := pixelgl.NewWindow(cfg)
 	if err != nil {
 		panic(err)
 	}
+
+	s.window = window
+
+	s.runner()
+}
+
+func (s *screen) runner() {
+
+	for !s.window.Closed() {
+		win := s.window
+
+		e := (s.nes.ppu.regs[PPUMASK].val & 0xE0) >> 5
+
+		emphasis_table := []color.Color{
+			colornames.Whitesmoke,
+			/* 001 Red      */ colornames.Red, // 1239,  915,  743,
+			/* 010 Green    */ colornames.Green, //  794, 1086,  882,
+			/* 011 Yellow   */ colornames.Yellow, // 1019,  980,  653,
+			/* 100 Blue     */ colornames.Blue, //  905, 1026, 1277,
+			/* 101 Magenta  */ colornames.Magenta, // 1023,  908,  979,
+			/* 110 Cyan     */ colornames.Cyan, //  741,  987, 1001,
+			/* 111 Black    */ colornames.Black, //  750,  750,  750
+		}
+
+		// this is wrong btw, but it's a nice way to test the nes atm
+		// todo: how to apply the emphasis!?
+		win.Clear(emphasis_table[e])
+
+		s.sprite.Draw(win, pixel.IM.Moved(win.Bounds().Center()).ScaledXY(win.Bounds().Center(), pixel.V(8, 8)))
+
+		win.Update()
+	}
+}
+
+func (s *screen) addSprite() {
 
 	pic := &pixel.PictureData{
 		Pix:    make([]color.RGBA, 32*32),
@@ -35,11 +87,10 @@ func run() {
 	}
 
 	data := make([]byte, 10000)
-	count, err := file.Read(data)
+	_, err = file.Read(data)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("read %d bytes: %q\n", count, data[:count])
 
 	palette := [4]color.RGBA{
 		{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}, // B - W
@@ -58,16 +109,5 @@ func run() {
 		}
 	}
 
-	spr := pixel.NewSprite(pic, pixel.R(0, 0, 8, 8))
-
-	for !win.Closed() {
-		win.Clear(colornames.Whitesmoke)
-		spr.Draw(win, pixel.IM.Moved(win.Bounds().Center()).ScaledXY(win.Bounds().Center(), pixel.V(8, 8)))
-
-		win.Update()
-	}
-}
-
-func Start() {
-	pixelgl.Run(run)
+	s.sprite = pixel.NewSprite(pic, pixel.R(0, 0, 8, 8))
 }

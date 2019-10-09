@@ -7,7 +7,7 @@ type Ppu struct {
 	scanLine int
 	verbose  bool
 
-	// cpu mapper
+	// cpu mapper registers
 	regs [9]register
 
 	// internal registers: http://wiki.nesdev.com/w/index.php/PPU_scrolling

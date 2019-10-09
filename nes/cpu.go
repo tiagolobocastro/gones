@@ -185,6 +185,7 @@ func (c *Cpu) getOperandString(ins *Instruction) string {
 	str := ""
 	switch ins.addrMode {
 	case ModeImplied:
+	case ModeAccumulator:
 	case ModeImmediate:
 		str = fmt.Sprintf("#$%02x", op1)
 	case ModeZeroPage:
@@ -210,7 +211,7 @@ func (c *Cpu) getOperandString(ins *Instruction) string {
 	case ModeInvalid:
 		fallthrough
 	default:
-		panic("Invalid instruction address mode")
+		panic(fmt.Sprintf("invalid address mode: %d", ins.addrMode))
 	}
 	return str
 }
@@ -348,7 +349,7 @@ func (c *Cpu) bit() {
 	value := c.read8(c.getOperandAddr(c.curr.ins))
 	result := value & mask
 	c.rg.spc.ps.set(bZ, int8(result))
-	c.rg.spc.ps.set(bN|bV, int8(mask))
+	c.rg.spc.ps.set(bN|bV, int8(value))
 }
 
 func (c *Cpu) clc() {

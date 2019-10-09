@@ -76,6 +76,8 @@ type nes struct {
 	ppu  Ppu
 	vRam ram
 
+	screen screen
+
 	verbose bool
 }
 
