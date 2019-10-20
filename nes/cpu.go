@@ -2,6 +2,10 @@ package gones
 
 import (
 	"fmt"
+	"io"
+	"log"
+	"os"
+	"strings"
 )
 
 type Instruction struct {
@@ -60,6 +64,12 @@ type Cpu struct {
 
 	inInt      bool
 	interrupts uint8
+
+	// a bit messy but ok for now
+	f *os.File
+
+	// internal buffer to make logging compatible with previous fmt.print*
+	bufStr string
 }
 
 func (c *Cpu) init(busInt busExtInt, verbose bool) {
@@ -70,6 +80,14 @@ func (c *Cpu) init(busInt busExtInt, verbose bool) {
 	c.setupIns()
 
 	c.busExtInt = busInt
+
+	f, err := os.OpenFile("log.log", os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		log.Fatalf("error opening file: %v", err)
+	}
+	c.f = f
+	wrt := io.MultiWriter(os.Stdout, f)
+	log.SetOutput(wrt)
 }
 
 func (c *Cpu) reset() {
@@ -87,26 +105,37 @@ func (c *Cpu) tick() {
 
 func (c *Cpu) Log(a ...interface{}) {
 	if c.verbose {
-		fmt.Print(a...)
+		log.Print(a...)
 	}
 }
 
 func (c *Cpu) LogAf(align int, format string, a ...interface{}) {
 	if c.verbose {
-		n, _ := fmt.Printf(format, a...)
+		s := fmt.Sprintf(format, a...)
+		n := len(s)
 		if align > n {
-			s := ""
 			for i := n; i < align; i++ {
 				s = fmt.Sprintf("%s ", s)
 			}
-			fmt.Printf(s)
+		}
+		c.bufStr += s
+
+		if strings.IndexByte(s, '\n') > 0 {
+			log.Printf(c.bufStr)
+			c.bufStr = ""
 		}
 	}
 }
 
 func (c *Cpu) Logf(format string, a ...interface{}) {
 	if c.verbose {
-		fmt.Printf(format, a...)
+		s := fmt.Sprintf(format, a...)
+		c.bufStr += s
+
+		if strings.IndexByte(s, '\n') > 0 {
+			log.Print(c.bufStr)
+			c.bufStr = ""
+		}
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"time"
 )
 
 type screen struct {
@@ -20,7 +21,7 @@ type screen struct {
 
 func (s *screen) init(nes *nes) {
 	s.nes = nes
-	s.addSprite()
+	//s.addSprite()
 	go func() {
 		runtime.LockOSThread()
 		pixelgl.Run(s.run)
@@ -46,6 +47,9 @@ func (s *screen) run() {
 }
 
 func (s *screen) runner() {
+
+	time.Sleep(time.Second * 2)
+	s.addSpriteX(uint(s.nes.ppu.pOAM[4].tIndex))
 
 	for !s.window.Closed() {
 		win := s.window
@@ -104,6 +108,45 @@ func (s *screen) addSprite() {
 
 			i := (data[y] >> (8 - 1 - x)) & 1
 			j := (data[y+8] >> (8 - 1 - x)) & 1
+			rgb := palette[j<<1|i]
+			pic.Pix[(8-1-y)*8+x] = rgb
+		}
+	}
+
+	s.sprite = pixel.NewSprite(pic, pixel.R(0, 0, 8, 8))
+}
+
+func (s *screen) addSpriteX(X uint) {
+
+	pic := &pixel.PictureData{
+		Pix:    make([]color.RGBA, 32*32),
+		Stride: 8,
+		Rect:   pixel.R(0, 0, 32, 32),
+	}
+
+	file, err := os.Open("mario.chr") // For read access.
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	data := make([]byte, 10000)
+	_, err = file.Read(data)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	palette := [4]color.RGBA{
+		{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}, // B - W
+		{R: 0xFF, G: 0x00, B: 0x00, A: 0xFF}, // 1 - R
+		{R: 0x00, G: 0x00, B: 0xFF, A: 0xFF}, // 2 - B
+		{R: 0x00, G: 0xF0, B: 0xF0, A: 0xFF}, // 3 - LB
+	}
+
+	for y := uint(0); y < 8; y++ {
+		for x := uint(0); x < 8; x++ {
+
+			i := (data[y+X] >> (8 - 1 - x - X)) & 1
+			j := (data[y+8+X] >> (8 - 1 - x - X)) & 1
 			rgb := palette[j<<1|i]
 			pic.Pix[(8-1-y)*8+x] = rgb
 		}

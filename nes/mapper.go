@@ -72,7 +72,10 @@ func (m *cpuMapper) write8(addr uint16, val uint8) {
 		m.nes.ram.write8(addr%2048, val)
 
 	case addr < 0x4000:
-		m.nes.ppu.write8(addr%8, val)
+		m.nes.ppu.write8(addr, val)
+
+	case addr == 0x4014:
+		m.nes.ppu.write8(addr, val)
 
 	case addr < 0x4018:
 		// APU and I-O

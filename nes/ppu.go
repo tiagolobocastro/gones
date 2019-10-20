@@ -1,5 +1,21 @@
 package gones
 
+// http://wiki.nesdev.com/w/index.php/PPU_OAM
+type OamSprite struct {
+	// Y position of top of sprite
+	yPos uint8
+	// Tile index number
+	tIndex uint8
+	// Sprite Attributes
+	attributes uint8
+	// X position of left side of sprite
+	xPos uint8
+
+	// data
+	dataH uint8
+	dataL uint8
+}
+
 type Ppu struct {
 	busInt
 
@@ -15,6 +31,17 @@ type Ppu struct {
 	tRAM    register16 // Temporary VRAM address (15 bits); can also be thought of as the address of the top left onscreen tile.
 	xFine   register   // Fine X scroll (3 bits)
 	wToggle register   // First or second write toggle (1 bit)
+
+	rOAM ram
+	// primary OAM
+	pOAM [64]OamSprite
+	// secondary OAM
+	// In addition to the primary OAM memory, the PPU contains 32 bytes (enough for 8 sprites) of secondary OAM memory
+	// that is not directly accessible by the program. During each visible scanline this secondary OAM is first cleared,
+	// and then a linear search of the entire primary OAM is carried out to find sprites that are within y range for the
+	// next scanline (the sprite evaluation phase). The OAM data for each sprite found to be within range is copied into
+	// the secondary OAM, which is then used to initialize eight internal sprite output units.
+	sOAM [8]OamSprite
 
 	palette ppuPalette
 
@@ -32,6 +59,9 @@ func (p *Ppu) init(busInt busInt, verbose bool, interrupts iInterrupt) {
 	p.tRAM.init("t", 0)
 	p.xFine.init("x", 0)
 	p.wToggle.init("w", 0)
+	p.rOAM.initf(256, 0xfe)
+
+	p.initRegisters()
 }
 
 func (p *Ppu) reset() {
@@ -122,6 +152,88 @@ func (p *Ppu) tick() {
 			p.clear(cpuIntNMI)
 		}
 	}
+
+	if p.scanLine < 240 || p.scanLine == 261 {
+		switch p.cycle {
+		case 1:
+			p.clearSecOAM() // if ( scanline == 261 ) { spriteOverflow = spriteHit = false; } break;
+		case 257:
+			p.evalSprites()
+		case 321:
+			p.loadSprites()
+		}
+	}
+}
+
+func (p *Ppu) loadSprites() {
+	for i, _ := range p.sOAM {
+		/*
+		 // Copy secondary OAM into primary.
+		        oam[i] = secOam[i];
+
+		        // Different address modes depending on the sprite height:
+		        if ( SpriteHeight() == 16 )
+		            address = ((oam[i].tile & 1) * 0x1000) + ((oam[i].tile & ~1) * 16);
+		        else
+		            address = ((((control & ControlFlag_SpriteAddress) >> 3) & 1) * 0x1000) + (oam[i].tile * 16);
+
+		        // Line inside the sprite.
+		        uint16 sprY = (scanline - oam[i].y) % SpriteHeight();
+		        // Vertical flip.
+		        if ( oam[i].attribute & 0x80 )
+		            sprY ^= SpriteHeight() - 1;
+
+		        // Select the second tile if on 8x16.
+		        address += sprY + (sprY & 8);
+
+		        oam[i].dataL = memoryController->PpuRead( address + 0 );
+		        oam[i].dataH = memoryController->PpuRead( address + 8 );
+		*/
+		p.pOAM[i] = p.sOAM[i]
+
+		// very simple to test
+		addr := 0x1000 + uint16(p.pOAM[i].tIndex*16)
+
+		p.pOAM[i].dataL = p.busInt.read8(addr)
+		p.pOAM[i].dataH = p.busInt.read8(addr + 8)
+	}
+}
+
+func (p *Ppu) evalSprites() {
+	spriteCount := 0
+	for i := uint16(0); i < 64; i++ {
+
+		yPos := p.rOAM.read8(i*4 + 0)
+		_, yLen := p.getSpriteSize()
+		yPosEnd := yPos + yLen
+
+		// if the scanLine intersects the sprite, it's a "hit"
+		// copy sprite to the secondary OAM
+		if yPosEnd > yPos && p.scanLine >= int(yPos) && p.scanLine <= int(yPosEnd) {
+			p.sOAM[spriteCount].yPos = p.rOAM.read8(i*4 + 0)
+			p.sOAM[spriteCount].tIndex = p.rOAM.read8(i*4 + 1)
+			p.sOAM[spriteCount].attributes = p.rOAM.read8(i*4 + 2)
+			p.sOAM[spriteCount].xPos = p.rOAM.read8(i*4 + 3)
+
+			spriteCount += 1
+			if spriteCount >= 8 {
+				p.setSTATUSbits(statusSpriteOverflow)
+				break
+			}
+		}
+	}
+}
+
+func (p *Ppu) clearSecOAM() {
+	for i, _ := range p.sOAM {
+		// set back to defaults
+		p.sOAM[i] = OamSprite{
+			yPos:       0xFF,
+			tIndex:     0xFF,
+			attributes: 0xFF,
+			xPos:       0xFF,
+		}
+	}
 }
 
 func (p *Ppu) clock() {
@@ -189,10 +301,10 @@ func (p *Ppu) write8(addr uint16, val uint8) {
 		p.regs[PPUSCROLL].write(val)
 	// PPU Address (PPUADDR) - WRONLY
 	case 0x2006:
-		p.writePPUAddr(val)
+		p.regs[PPUADDR].write(val)
 	// PPU Data (PPUDATA)
 	case 0x2007:
-		p.writePPUData(val)
+		p.regs[PPUDATA].write(val)
 	// PPU OAM DMA (OAMDMA) - WRONLY
 	case 0x4014:
 		p.regs[OAMDMA].write(val)

@@ -1,7 +1,7 @@
 package gones
 
 import (
-	"fmt"
+	"log"
 )
 
 func (n *nes) init(cartPath string) {
@@ -43,7 +43,7 @@ func (n *nes) stats() {
 			}
 		}
 	}
-	fmt.Printf("\nTotal instructions: %d\nValid instructions: %d\nImplemented instructions: %d\nRemainingValid: %d\n", nTotal, nValid, nImp, nValid-nImp)
+	log.Printf("\nTotal instructions: %d\nValid instructions: %d\nImplemented instructions: %d\nRemainingValid: %d\n", nTotal, nValid, nImp, nValid-nImp)
 }
 
 func (n *nes) Run() {

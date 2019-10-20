@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 )
@@ -52,7 +53,7 @@ func (c *Cartridge) init(cartPath string) error {
 	defer func() {
 		err := file.Close()
 		if err != nil {
-			fmt.Printf("error closing file:%v\nbut ignoring it since it's we didn't write anything...", err)
+			log.Printf("error closing file:%v\nbut ignoring it since it's we didn't write anything...", err)
 		}
 	}()
 
@@ -132,7 +133,7 @@ func (n *nes) loadEasyCode(code string) {
 			&addr, &bt[0], &bt[1], &bt[2], &bt[3], &bt[4], &bt[5], &bt[6], &bt[7],
 			&bt[8], &bt[9], &bt[10], &bt[11], &bt[12], &bt[13], &bt[14], &bt[15])
 		if err != nil && err != io.EOF {
-			fmt.Printf("Error when scanning easyCode line, ns: %x, error: %v\n", ns, err)
+			log.Printf("Error when scanning easyCode line, ns: %x, error: %v\n", ns, err)
 		}
 
 		if i == 0 {

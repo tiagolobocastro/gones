@@ -34,13 +34,12 @@ func (p *Ppu) getBaseNametable() uint16 {
 	return 0x2000 + uint16(p.regs[PPUCTRL].val&0x3)*0x400
 }
 
-func (p *Ppu) getVRAMAddrInc() uint8 {
+func (p *Ppu) getVRAMAddrInc() uint16 {
 	if p.regs[PPUCTRL].val&4 == 0 {
 		return 1
 	} else {
 		return 32
 	}
-	// need to implement PPUDATA
 }
 
 func (p *Ppu) getSpritePattern() uint16 {
@@ -52,7 +51,7 @@ func (p *Ppu) getBackgroundTable() uint16 {
 }
 
 func (p *Ppu) getSpriteSize() (uint8, uint8) {
-	return 8, ((p.regs[PPUCTRL].val & 5) >> 8) * 8
+	return 8, (((p.regs[PPUCTRL].val >> 5) & 0x1) * 8) + 8
 }
 
 func (p *Ppu) getMasterSlaveSelect() uint8 {
@@ -126,6 +125,14 @@ VSO. ....
            pre-render line.
 */
 
+const (
+	statusSpriteOverflow = 1 << 5
+)
+
+func (p *Ppu) setSTATUSbits(val uint8) {
+	p.regs[PPUSTATUS].set(val)
+}
+
 func (p *Ppu) getSTATUS() uint8 {
 	val := p.regs[PPUSTATUS].val
 	p.clear(cpuIntNMI) // clear vblank
@@ -135,8 +142,26 @@ func (p *Ppu) getSTATUS() uint8 {
 	return val
 }
 
-// yeah, these should really be func(ppu) assigned to the cpu mapped registers
-func (p *Ppu) writePPUAddr(val uint8) {
+func (p *Ppu) writePPUScroll() {
+	val := p.regs[PPUSCROLL].read()
+	if p.wToggle.val == 0 {
+		// t: ....... ...HGFED = d: HGFED...
+		// x:              CBA = d: .....CBA
+		// w:                  = 1
+		p.tRAM.val = (p.tRAM.val & 0xFFE0) | uint16(val>>8)
+		p.xFine.write(val & 0x7)
+		p.wToggle.val = 1
+	} else {
+		// t: CBA..HG FED..... = d: HGFEDCBA
+		// w:                  = 01
+		p.tRAM.val = (p.tRAM.val & 0x8FFF) | ((uint16(val) & 0x7) << 12)
+		p.tRAM.val = (p.tRAM.val & 0xFC1F) | ((uint16(val) & 0xF8) << 2)
+		p.wToggle.val = 0
+	}
+}
+
+func (p *Ppu) writePPUAddr() {
+	val := p.regs[PPUADDR].read()
 	if p.wToggle.val == 0 {
 		// http://wiki.nesdev.com/w/index.php/PPU_scrolling:
 		// t: .FEDCBA ........ = d: ..FEDCBA
@@ -154,11 +179,60 @@ func (p *Ppu) writePPUAddr(val uint8) {
 	}
 }
 
-func (p *Ppu) writePPUData(val uint8) {
+func (p *Ppu) readPPUData() {
+	val := p.busInt.read8(p.vRAM.val)
+	p.regs[PPUDATA].val = val
+
+	p.vRAM.val += p.getVRAMAddrInc()
+}
+func (p *Ppu) writePPUData() {
+	val := p.regs[PPUDATA].read()
 	p.busInt.write8(p.vRAM.val, val)
+
+	p.vRAM.val += p.getVRAMAddrInc()
 }
 
-func (p *Ppu) writeOAMData(val uint8) {
+func (p *Ppu) readOAMData() {
+	addr := p.regs[OAMADDR].val
+	val := p.rOAM.read8(uint16(addr))
 	p.regs[OAMDATA].val = val
-	p.regs[OAMADDR].val += 1
+
+	p.regs[OAMADDR].val = addr + 1
+}
+func (p *Ppu) writeOAMData() {
+	addr := p.regs[OAMADDR].val
+	p.rOAM.write8(uint16(addr), p.regs[OAMDATA].val)
+	p.regs[OAMADDR].val = addr + 1
+}
+
+func (p *Ppu) writeOAMDma() {
+	cpuAddr := uint16(p.regs[OAMDMA].val) << 8
+	oamAddr := p.regs[OAMADDR].read()
+
+	for i := 0; i < 256; i += 1 {
+
+		// nope...
+		cpuData := p.busInt.read8(cpuAddr)
+		p.rOAM.write8(uint16(oamAddr), cpuData)
+
+		oamAddr += 1
+		cpuAddr += 1
+	}
+
+	p.regs[OAMADDR].write(oamAddr)
+
+	// add cpu stall cycles
+}
+
+func (p *Ppu) initRegisters() {
+
+	p.regs[PPUCTRL].initx("PPUCTRL", 0, nil, nil)
+	p.regs[PPUMASK].initx("PPUMASK", 0, nil, nil)
+	p.regs[PPUSTATUS].initx("PPUSTATUS", 0, nil, nil)
+	p.regs[OAMADDR].initx("OAMADDR", 0, nil, nil)
+	p.regs[OAMDATA].initx("OAMDATA", 0, p.writeOAMData, p.readOAMData)
+	p.regs[PPUSCROLL].initx("PPUSCROLL", 0, p.writePPUScroll, nil)
+	p.regs[PPUADDR].initx("PPUADDR", 0, p.writePPUAddr, nil)
+	p.regs[PPUDATA].initx("PPUDATA", 0, p.writePPUData, p.readPPUData)
+	p.regs[OAMDMA].initx("OAMDMA", 0, p.writeOAMDma, nil)
 }

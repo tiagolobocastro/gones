@@ -1,6 +1,9 @@
 package gones
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+)
 
 const (
 	C = 0 // Carry
@@ -101,8 +104,6 @@ func (psr *ps_register) write(value uint8) {
 func (psr ps_register) String() string {
 	return fmt.Sprintf("%s: 0x%02x (N:%d V:%d E:%d B:%d D:%d I:%d Z:%d C:%d)", psr.name, psr.read(),
 		psr.bit[N], psr.bit[V], psr.bit[E], psr.bit[B], psr.bit[D], psr.bit[I], psr.bit[Z], psr.bit[C])
-	//return fmt.Sprintf("%s: 0x%02x (C:%d Z:%d I:%d D:%d B:%d E:%d V:%d N:%d)", psr.name, psr.read(),
-	//	psr.bit[C], psr.bit[Z], psr.bit[I], psr.bit[D], psr.bit[B], psr.bit[E], psr.bit[V], psr.bit[N])
 }
 
 func (psr ps_register) String2() string {
@@ -121,13 +122,28 @@ func (r *register) init(name string, val uint8) {
 	r.val = val
 	r.name = name
 }
+func (r *register) initx(name string, val uint8, onWrite func(), onRead func()) {
+	r.init(name, val)
+	r.onWrite = onWrite
+	r.onRead = onRead
+}
+func (r *register) set(w uint8) {
+	r.val |= w
+}
 func (r *register) write(w uint8) {
 	r.val = w
+
+	if r.onWrite != nil {
+		r.onWrite()
+	}
 }
 func (r *register) read() uint8 {
 	// add logging so we can debug it, same to write actually
 	// where to control logging level without having to propagate a flag to each component,
 	// have a package level?? probably ok
+	if r.onRead != nil {
+		r.onRead()
+	}
 	return r.val
 }
 
@@ -179,7 +195,7 @@ func (r *registers) init() {
 }
 
 func (r registers) print() {
-	fmt.Println(r)
+	log.Println(r)
 }
 func (r registers) String() string {
 	return fmt.Sprintf("%s, %s\n", r.spc, r.gp)

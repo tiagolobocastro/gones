@@ -7,6 +7,9 @@ type register struct {
 	val uint8
 
 	name string
+
+	onWrite func()
+	onRead  func()
 }
 
 type register16 struct {
