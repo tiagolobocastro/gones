@@ -78,6 +78,7 @@ type nes struct {
 	cart Cartridge
 	ppu  Ppu
 	vRam ram
+	dma  dma
 
 	screen screen
 
@@ -87,6 +88,7 @@ type nes struct {
 const (
 	MapCPUId = iota
 	MapPPUId
+	MapDMAId
 )
 
 type iInterrupt interface {

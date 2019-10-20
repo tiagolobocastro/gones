@@ -42,8 +42,8 @@ func (b *BusMapInt) write16(addr uint16, val uint16) {
 }
 
 func (b *bus) init() {
-	// CPU and PPU mappers
-	b.maps = make([]BusMapInt, 2)
+	// CPU, PPU and DMA mappers
+	b.maps = make([]BusMapInt, 3)
 }
 
 func (b *bus) connect(mapId int, busInt busInt) {

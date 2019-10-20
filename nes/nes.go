@@ -16,9 +16,11 @@ func (n *nes) init(cartPath string) {
 
 	n.cpu.init(n.bus.getBusInt(MapCPUId), n.verbose)
 	n.ppu.init(n.bus.getBusInt(MapPPUId), n.verbose, &n.cpu)
+	n.dma.init(n.bus.getBusInt(MapDMAId))
 
 	n.bus.connect(MapCPUId, &cpuMapper{n})
 	n.bus.connect(MapPPUId, &ppuMapper{n})
+	n.bus.connect(MapDMAId, &dmaMapper{n})
 
 	n.cpu.reset()
 
@@ -48,9 +50,16 @@ func (n *nes) stats() {
 
 func (n *nes) Run() {
 	for {
-		// need to sort out this naming
-		n.cpu.exec()
-		n.ppu.clock()
+
+		if !n.dma.active() {
+			// cpu stalled whilst dma is active
+			n.cpu.tick()
+		}
+
+		n.dma.tick()
+
+		// 3 ppu ticks per 1 cpu
+		n.ppu.ticks(3)
 
 		if n.cpu.curr.ins.opName == "BRK" {
 			break

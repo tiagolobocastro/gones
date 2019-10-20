@@ -14,7 +14,7 @@ func (r *ram) init(size int) {
 	r.ram = make([]byte, size)
 }
 
-func (r *ram) initf(size int, fill uint8) {
+func (r *ram) initNfill(size int, fill uint8) {
 	r.init(size)
 	for i := range r.ram {
 		r.ram[i] = fill

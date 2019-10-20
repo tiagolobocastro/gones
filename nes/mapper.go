@@ -29,7 +29,7 @@ func (m *Mapper) read8(addr uint16) uint8 {
 	return 0
 }
 func (m *Mapper) write8(addr uint16, val uint) {
-
+	panic("write not implemented!")
 }
 
 // CPU Mapping Table
@@ -56,9 +56,11 @@ func (m *cpuMapper) read8(addr uint16) uint8 {
 		return m.nes.ppu.read8(addr)
 
 	case addr < 0x4018:
-		return 0 // read from APU and I-O
+		// read from APU and I-O
+		panic("address range not implemented!")
 	case addr < 0x4020:
-		return 0 // APU
+		// APU
+		panic("address range not implemented!")
 
 	case addr <= 0xFFFF:
 		return m.nes.cart.mapper.read8(addr)
@@ -75,13 +77,30 @@ func (m *cpuMapper) write8(addr uint16, val uint8) {
 		m.nes.ppu.write8(addr, val)
 
 	case addr == 0x4014:
-		m.nes.ppu.write8(addr, val)
+		m.nes.dma.write8(addr, val)
 
 	case addr < 0x4018:
 		// APU and I-O
+		// panic("address range not implemented!")
+
 	case addr < 0x4020:
 		// APU
-
-		// case addr <= 0xFFFF: m.nes.cart.write
+		panic("address range not implemented!")
+	case addr <= 0xFFFF:
+		panic("cannot write to cart!")
 	}
+}
+
+type dmaMapper struct {
+	*nes
+}
+
+func (m *dmaMapper) read8(addr uint16) uint8 {
+	// read from the cpu
+	return m.nes.cpu.read8(addr)
+}
+
+func (m *dmaMapper) write8(addr uint16, val uint8) {
+	// and copy to the ppu
+	m.nes.ppu.write8(addr, val)
 }

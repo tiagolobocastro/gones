@@ -205,25 +205,6 @@ func (p *Ppu) writeOAMData() {
 	p.regs[OAMADDR].val = addr + 1
 }
 
-func (p *Ppu) writeOAMDma() {
-	cpuAddr := uint16(p.regs[OAMDMA].val) << 8
-	oamAddr := p.regs[OAMADDR].read()
-
-	for i := 0; i < 256; i += 1 {
-
-		// nope...
-		cpuData := p.busInt.read8(cpuAddr)
-		p.rOAM.write8(uint16(oamAddr), cpuData)
-
-		oamAddr += 1
-		cpuAddr += 1
-	}
-
-	p.regs[OAMADDR].write(oamAddr)
-
-	// add cpu stall cycles
-}
-
 func (p *Ppu) initRegisters() {
 
 	p.regs[PPUCTRL].initx("PPUCTRL", 0, nil, nil)
@@ -234,5 +215,4 @@ func (p *Ppu) initRegisters() {
 	p.regs[PPUSCROLL].initx("PPUSCROLL", 0, p.writePPUScroll, nil)
 	p.regs[PPUADDR].initx("PPUADDR", 0, p.writePPUAddr, nil)
 	p.regs[PPUDATA].initx("PPUDATA", 0, p.writePPUData, p.readPPUData)
-	p.regs[OAMDMA].initx("OAMDMA", 0, p.writeOAMDma, nil)
 }

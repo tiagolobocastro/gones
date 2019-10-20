@@ -57,7 +57,8 @@ type Cpu struct {
 	rg  registers
 	apu apu
 
-	clk int64
+	clk      uint
+	clkExtra uint8
 
 	verbose      bool
 	disableBreak bool
@@ -81,7 +82,7 @@ func (c *Cpu) init(busInt busExtInt, verbose bool) {
 
 	c.busExtInt = busInt
 
-	f, err := os.OpenFile("log.log", os.O_RDWR|os.O_CREATE, 0666)
+	f, err := os.OpenFile("log.log", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
 	}
@@ -154,6 +155,12 @@ func (c *Cpu) exec() bool {
 	// increment now or at the end?
 	c.clk += 1
 
+	// some instructions take more than 1 clock cycle
+	if c.clkExtra > 0 {
+		c.clkExtra--
+		return true
+	}
+
 	switch c.interrupts {
 	case cpuIntNMI:
 		c.nmi()
@@ -172,6 +179,9 @@ func (c *Cpu) exec() bool {
 	c.LogAf(30, "0x%04x: 0x%02x - %s %s", c.rg.spc.pc.val, opCode, c.curr.ins.opName, c.getOperandString(c.curr.ins))
 	c.curr.ins.eval()
 	c.rg.spc.pc.val += uint16(c.curr.ins.opLength)
+
+	// also need to add the page cross extra cycles
+	c.clkExtra = c.curr.ins.opCycles
 
 	c.Logf("%s\n", c.rg)
 

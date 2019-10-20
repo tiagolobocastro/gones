@@ -24,7 +24,7 @@ type Ppu struct {
 	verbose  bool
 
 	// cpu mapper registers
-	regs [9]register
+	regs [8]register
 
 	// internal registers: http://wiki.nesdev.com/w/index.php/PPU_scrolling
 	vRAM    register16 // Current VRAM address (15 bits)
@@ -59,7 +59,7 @@ func (p *Ppu) init(busInt busInt, verbose bool, interrupts iInterrupt) {
 	p.tRAM.init("t", 0)
 	p.xFine.init("x", 0)
 	p.wToggle.init("w", 0)
-	p.rOAM.initf(256, 0xfe)
+	p.rOAM.initNfill(256, 0xfe)
 
 	p.initRegisters()
 }
@@ -135,7 +135,7 @@ func (p *Ppu) clear(flag uint8) {
 	}
 }
 
-func (p *Ppu) tick() {
+func (p *Ppu) exec() {
 	p.cycle += 1
 
 	if p.cycle > 340 {
@@ -166,7 +166,7 @@ func (p *Ppu) tick() {
 }
 
 func (p *Ppu) loadSprites() {
-	for i, _ := range p.sOAM {
+	for i := range p.sOAM {
 		/*
 		 // Copy secondary OAM into primary.
 		        oam[i] = secOam[i];
@@ -225,7 +225,7 @@ func (p *Ppu) evalSprites() {
 }
 
 func (p *Ppu) clearSecOAM() {
-	for i, _ := range p.sOAM {
+	for i := range p.sOAM {
 		// set back to defaults
 		p.sOAM[i] = OamSprite{
 			yPos:       0xFF,
@@ -236,15 +236,14 @@ func (p *Ppu) clearSecOAM() {
 	}
 }
 
-func (p *Ppu) clock() {
+func (p *Ppu) ticks(nTicks int) {
 
-	// 3 ppu ticks per 1 cpu
-	p.exec()
-	p.exec()
-	p.exec()
+	for i := 0; i < nTicks; i++ {
+		p.exec()
+	}
 }
 
-func (p *Ppu) exec() {
+func (p *Ppu) tick() {
 
 	// first do the work, and only then tick?
 
@@ -307,6 +306,7 @@ func (p *Ppu) write8(addr uint16, val uint8) {
 		p.regs[PPUDATA].write(val)
 	// PPU OAM DMA (OAMDMA) - WRONLY
 	case 0x4014:
-		p.regs[OAMDMA].write(val)
+		// handled by the dma engine
+		panic("OAMDMA should have gone to the dma engine!")
 	}
 }
