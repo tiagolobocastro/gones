@@ -198,5 +198,5 @@ func (r registers) print() {
 	log.Println(r)
 }
 func (r registers) String() string {
-	return fmt.Sprintf("%s, %s\n", r.spc, r.gp)
+	return fmt.Sprintf("%s, %s", r.spc, r.gp)
 }

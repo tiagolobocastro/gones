@@ -173,7 +173,7 @@ func (c *Cpu) exec() bool {
 	c.curr.ins.eval()
 	c.rg.spc.pc.val += uint16(c.curr.ins.opLength)
 
-	c.Logf("%s", c.rg)
+	c.Logf("%s\n", c.rg)
 
 	if c.curr.ins.opName == "BRK" {
 		// probably need to remove this...
