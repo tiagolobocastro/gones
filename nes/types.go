@@ -9,7 +9,7 @@ type register struct {
 	name string
 
 	onWrite func()
-	onRead  func()
+	onRead  func() uint8
 }
 
 type register16 struct {

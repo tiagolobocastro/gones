@@ -56,6 +56,8 @@ func (d *dma) exec() {
 				d.nBytes--
 			}
 		}
+	} else {
+		d.delay = true
 	}
 }
 

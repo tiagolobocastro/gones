@@ -43,7 +43,11 @@ func (p *Ppu) getVRAMAddrInc() uint16 {
 }
 
 func (p *Ppu) getSpritePattern() uint16 {
-	return (uint16(p.regs[PPUCTRL].val&8) >> 3) * 0x1000
+	_, spriteYSize := p.getSpriteSize()
+	if spriteYSize == 8 {
+		return (uint16(p.regs[PPUCTRL].read()&8) >> 3) * 0x1000
+	}
+	return 0x1000
 }
 
 func (p *Ppu) getBackgroundTable() uint16 {
@@ -127,14 +131,16 @@ VSO. ....
 
 const (
 	statusSpriteOverflow = 1 << 5
+	statusSprite0Hit     = 1 << 6
 )
 
 func (p *Ppu) setSTATUSbits(val uint8) {
 	p.regs[PPUSTATUS].set(val)
 }
 
-func (p *Ppu) getSTATUS() uint8 {
+func (p *Ppu) readPPUStatus() uint8 {
 	val := p.regs[PPUSTATUS].val
+
 	p.clear(cpuIntNMI) // clear vblank
 	p.wToggle.val = 0
 	// Race Condition Warning: Reading PPUSTATUS within two cycles of the start of vertical blank will return 0
@@ -179,11 +185,13 @@ func (p *Ppu) writePPUAddr() {
 	}
 }
 
-func (p *Ppu) readPPUData() {
+func (p *Ppu) readPPUData() uint8 {
 	val := p.busInt.read8(p.vRAM.val)
 	p.regs[PPUDATA].val = val
 
 	p.vRAM.val += p.getVRAMAddrInc()
+
+	return val
 }
 func (p *Ppu) writePPUData() {
 	val := p.regs[PPUDATA].read()
@@ -192,12 +200,14 @@ func (p *Ppu) writePPUData() {
 	p.vRAM.val += p.getVRAMAddrInc()
 }
 
-func (p *Ppu) readOAMData() {
+func (p *Ppu) readOAMData() uint8 {
 	addr := p.regs[OAMADDR].val
 	val := p.rOAM.read8(uint16(addr))
 	p.regs[OAMDATA].val = val
 
 	p.regs[OAMADDR].val = addr + 1
+
+	return val
 }
 func (p *Ppu) writeOAMData() {
 	addr := p.regs[OAMADDR].val
@@ -209,7 +219,7 @@ func (p *Ppu) initRegisters() {
 
 	p.regs[PPUCTRL].initx("PPUCTRL", 0, nil, nil)
 	p.regs[PPUMASK].initx("PPUMASK", 0, nil, nil)
-	p.regs[PPUSTATUS].initx("PPUSTATUS", 0, nil, nil)
+	p.regs[PPUSTATUS].initx("PPUSTATUS", 0, nil, p.readPPUStatus)
 	p.regs[OAMADDR].initx("OAMADDR", 0, nil, nil)
 	p.regs[OAMDATA].initx("OAMDATA", 0, p.writeOAMData, p.readOAMData)
 	p.regs[PPUSCROLL].initx("PPUSCROLL", 0, p.writePPUScroll, nil)

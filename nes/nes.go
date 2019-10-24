@@ -1,6 +1,7 @@
 package gones
 
 import (
+	"image/color"
 	"log"
 )
 
@@ -17,6 +18,8 @@ func (n *nes) init(cartPath string) {
 	n.cpu.init(n.bus.getBusInt(MapCPUId), n.verbose)
 	n.ppu.init(n.bus.getBusInt(MapPPUId), n.verbose, &n.cpu)
 	n.dma.init(n.bus.getBusInt(MapDMAId))
+
+	n.ppu.frameBuffer = make([]color.RGBA, 256*240)
 
 	n.bus.connect(MapCPUId, &cpuMapper{n})
 	n.bus.connect(MapPPUId, &ppuMapper{n})

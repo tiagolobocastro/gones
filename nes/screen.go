@@ -48,8 +48,8 @@ func (s *screen) run() {
 
 func (s *screen) runner() {
 
-	time.Sleep(time.Second * 2)
-	s.addSpriteX(uint(s.nes.ppu.pOAM[4].tIndex))
+	s.addSprite()
+	time.Sleep(time.Second)
 
 	for !s.window.Closed() {
 		win := s.window
@@ -71,46 +71,33 @@ func (s *screen) runner() {
 		// todo: how to apply the emphasis!?
 		win.Clear(emphasis_table[e])
 
-		s.sprite.Draw(win, pixel.IM.Moved(win.Bounds().Center()).ScaledXY(win.Bounds().Center(), pixel.V(8, 8)))
+		s.sprite.Draw(win, pixel.IM.Moved(win.Bounds().Center()).ScaledXY(win.Bounds().Center(), pixel.V(2, 2)))
 
 		win.Update()
+
+		time.Sleep(time.Microsecond * 500)
+
+		s.setSprite()
 	}
+}
+
+func (s *screen) setSprite() {
+
+	pic := &pixel.PictureData{
+		Pix:    *s.nes.ppu.getFramebuffer(),
+		Stride: 256,
+		Rect:   pixel.R(0, 0, 256, 240),
+	}
+
+	s.sprite = pixel.NewSprite(pic, pixel.R(0, 0, 256, 240))
 }
 
 func (s *screen) addSprite() {
 
 	pic := &pixel.PictureData{
-		Pix:    make([]color.RGBA, 32*32),
-		Stride: 8,
-		Rect:   pixel.R(0, 0, 32, 32),
-	}
-
-	file, err := os.Open("mario.chr") // For read access.
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	data := make([]byte, 10000)
-	_, err = file.Read(data)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	palette := [4]color.RGBA{
-		{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}, // B - W
-		{R: 0xFF, G: 0x00, B: 0x00, A: 0xFF}, // 1 - R
-		{R: 0x00, G: 0x00, B: 0xFF, A: 0xFF}, // 2 - B
-		{R: 0x00, G: 0xF0, B: 0xF0, A: 0xFF}, // 3 - LB
-	}
-
-	for y := uint(0); y < 8; y++ {
-		for x := uint(0); x < 8; x++ {
-
-			i := (data[y] >> (8 - 1 - x)) & 1
-			j := (data[y+8] >> (8 - 1 - x)) & 1
-			rgb := palette[j<<1|i]
-			pic.Pix[(8-1-y)*8+x] = rgb
-		}
+		Pix:    make([]color.RGBA, 256*240),
+		Stride: 256,
+		Rect:   pixel.R(0, 0, 256, 240),
 	}
 
 	s.sprite = pixel.NewSprite(pic, pixel.R(0, 0, 8, 8))
@@ -119,9 +106,9 @@ func (s *screen) addSprite() {
 func (s *screen) addSpriteX(X uint) {
 
 	pic := &pixel.PictureData{
-		Pix:    make([]color.RGBA, 32*32),
+		Pix:    make([]color.RGBA, 8*8),
 		Stride: 8,
-		Rect:   pixel.R(0, 0, 32, 32),
+		Rect:   pixel.R(0, 0, 8, 8),
 	}
 
 	file, err := os.Open("mario.chr") // For read access.

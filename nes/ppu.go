@@ -1,5 +1,10 @@
 package gones
 
+import (
+	"golang.org/x/image/colornames"
+	"image/color"
+)
+
 // http://wiki.nesdev.com/w/index.php/PPU_OAM
 type OamSprite struct {
 	// Y position of top of sprite
@@ -12,8 +17,11 @@ type OamSprite struct {
 	xPos uint8
 
 	// data
-	dataH uint8
-	dataL uint8
+	msbIndex uint8
+	lsbIndex uint8
+
+	// clr
+	set bool
 }
 
 type Ppu struct {
@@ -44,6 +52,8 @@ type Ppu struct {
 	sOAM [8]OamSprite
 
 	palette ppuPalette
+
+	frameBuffer []color.RGBA
 
 	interrupts iInterrupt
 }
@@ -86,6 +96,8 @@ type ppuMapper struct {
 func (m *ppuMapper) read8(addr uint16) uint8 {
 	switch {
 	// PPU VRAM or controlled via the Cartridge Mapper
+	case addr < 0x2000:
+		return m.nes.cart.mapper.read8(addr % 2048)
 	case addr < 0x3000:
 		return m.nes.vRam.read8(addr % 2048)
 	case addr < 0x3F00:
@@ -136,6 +148,52 @@ func (p *Ppu) clear(flag uint8) {
 }
 
 func (p *Ppu) exec() {
+
+	if p.scanLine < 240 || p.scanLine == 261 {
+		switch p.cycle {
+		case 1:
+			p.clearSecOAM()
+			if p.scanLine == 261 {
+				p.regs[PPUSTATUS].clr(statusSpriteOverflow | statusSprite0Hit)
+			}
+		case 257:
+			p.evalSprites()
+		case 321:
+			p.loadSprites()
+		}
+	}
+
+	if p.scanLine < 240 && p.cycle < 256 {
+		x := uint8(p.cycle)
+		y := uint8(p.scanLine)
+		c := colornames.Aliceblue
+
+		palette := [4]color.RGBA{
+			{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}, // B - W
+			{R: 0xFF, G: 0x00, B: 0x00, A: 0xFF}, // 1 - R
+			{R: 0x00, G: 0x00, B: 0xFF, A: 0xFF}, // 2 - B
+			{R: 0x00, G: 0xF0, B: 0xF0, A: 0xFF}, // 3 - LB
+		}
+
+		for _, s := range p.pOAM {
+			if s.xPos <= x && x <= (s.xPos+7) {
+				if s.yPos <= y && y <= (s.yPos+7) && s.tIndex < 255 && s.set {
+
+					xi := x - s.xPos
+
+					b0 := (s.lsbIndex >> (8 - xi - 1)) & 1
+					b1 := (s.msbIndex >> (8 - xi - 1)) & 1
+					b := b0 | (b1 << 1)
+
+					c = palette[b]
+					break
+				}
+			}
+		}
+
+		p.drawPixel(x, y, c)
+	}
+
 	p.cycle += 1
 
 	if p.cycle > 340 {
@@ -146,61 +204,70 @@ func (p *Ppu) exec() {
 			p.raise(cpuIntNMI)
 		}
 
-		if p.scanLine > 260 {
+		if p.scanLine > 261 {
 			p.scanLine = 0
 			// may already be cleared as reading from PPSTATUS will do so
 			p.clear(cpuIntNMI)
 		}
 	}
+}
 
-	if p.scanLine < 240 || p.scanLine == 261 {
-		switch p.cycle {
-		case 1:
-			p.clearSecOAM() // if ( scanline == 261 ) { spriteOverflow = spriteHit = false; } break;
-		case 257:
-			p.evalSprites()
-		case 321:
-			p.loadSprites()
-		}
-	}
+func (p *Ppu) drawPixel(x uint8, y uint8, c color.RGBA) {
+	p.frameBuffer[(240-1-uint16(y))*256+uint16(x)] = c
+}
+
+func (p *Ppu) getFramebuffer() *[]color.RGBA {
+	return &p.frameBuffer
 }
 
 func (p *Ppu) loadSprites() {
 	for i := range p.sOAM {
-		/*
-		 // Copy secondary OAM into primary.
-		        oam[i] = secOam[i];
+		if !p.sOAM[i].set {
+			continue
+		}
 
-		        // Different address modes depending on the sprite height:
-		        if ( SpriteHeight() == 16 )
-		            address = ((oam[i].tile & 1) * 0x1000) + ((oam[i].tile & ~1) * 16);
-		        else
-		            address = ((((control & ControlFlag_SpriteAddress) >> 3) & 1) * 0x1000) + (oam[i].tile * 16);
-
-		        // Line inside the sprite.
-		        uint16 sprY = (scanline - oam[i].y) % SpriteHeight();
-		        // Vertical flip.
-		        if ( oam[i].attribute & 0x80 )
-		            sprY ^= SpriteHeight() - 1;
-
-		        // Select the second tile if on 8x16.
-		        address += sprY + (sprY & 8);
-
-		        oam[i].dataL = memoryController->PpuRead( address + 0 );
-		        oam[i].dataH = memoryController->PpuRead( address + 8 );
-		*/
 		p.pOAM[i] = p.sOAM[i]
+		_, spriteSizeY := p.getSpriteSize()
 
-		// very simple to test
-		addr := 0x1000 + uint16(p.pOAM[i].tIndex*16)
+		addr := uint16(0)
+		if spriteSizeY == 16 {
+			// taken from HydraNes, have not verified this
+			addr = ((uint16(p.pOAM[i].tIndex) & 1) * p.getSpritePattern()) + ((uint16(p.pOAM[i].tIndex) & (1 ^ 0xFFFF)) * 16)
+		} else {
+			addr = p.getSpritePattern() + uint16(p.pOAM[i].tIndex)*16
+		}
 
-		p.pOAM[i].dataL = p.busInt.read8(addr)
-		p.pOAM[i].dataH = p.busInt.read8(addr + 8)
+		// calculate line inside sprite for the next scanLine
+		lSpY := (p.scanLine + 1 - int(p.pOAM[i].yPos)) % int(spriteSizeY)
+
+		// vertical flip
+		if (p.pOAM[i].attributes & 0x80) != 0 {
+			lSpY ^= int(spriteSizeY) - 1
+		}
+
+		addr += uint16(lSpY) + uint16(lSpY&8)
+
+		p.pOAM[i].lsbIndex = p.busInt.read8(addr)
+		p.pOAM[i].msbIndex = p.busInt.read8(addr + 8)
+
+		// horizontal flip
+		if (p.pOAM[i].attributes & 0x40) != 0 {
+			p.pOAM[i].lsbIndex = reverseByte(p.pOAM[i].lsbIndex)
+			p.pOAM[i].msbIndex = reverseByte(p.pOAM[i].msbIndex)
+		}
 	}
+}
+
+func reverseByte(b uint8) uint8 {
+	return ((b & 0x1) << 7) | ((b & 0x2) << 5) |
+		((b & 0x4) << 3) | ((b & 0x8) << 1) |
+		((b & 0x10) >> 1) | ((b & 0x20) >> 3) |
+		((b & 0x40) >> 5) | ((b & 0x80) >> 7)
 }
 
 func (p *Ppu) evalSprites() {
 	spriteCount := 0
+	evalScan := p.scanLine + 1
 	for i := uint16(0); i < 64; i++ {
 
 		yPos := p.rOAM.read8(i*4 + 0)
@@ -209,15 +276,16 @@ func (p *Ppu) evalSprites() {
 
 		// if the scanLine intersects the sprite, it's a "hit"
 		// copy sprite to the secondary OAM
-		if yPosEnd > yPos && p.scanLine >= int(yPos) && p.scanLine <= int(yPosEnd) {
+		if yPosEnd > yPos && evalScan >= int(yPos) && evalScan <= int(yPosEnd) {
 			p.sOAM[spriteCount].yPos = p.rOAM.read8(i*4 + 0)
 			p.sOAM[spriteCount].tIndex = p.rOAM.read8(i*4 + 1)
 			p.sOAM[spriteCount].attributes = p.rOAM.read8(i*4 + 2)
 			p.sOAM[spriteCount].xPos = p.rOAM.read8(i*4 + 3)
+			p.sOAM[spriteCount].set = true
 
 			spriteCount += 1
 			if spriteCount >= 8 {
-				p.setSTATUSbits(statusSpriteOverflow)
+				p.regs[PPUSTATUS].set(statusSpriteOverflow)
 				break
 			}
 		}
@@ -232,6 +300,9 @@ func (p *Ppu) clearSecOAM() {
 			tIndex:     0xFF,
 			attributes: 0xFF,
 			xPos:       0xFF,
+			lsbIndex:   0x00,
+			msbIndex:   0x00,
+			set:        false,
 		}
 	}
 }
@@ -265,7 +336,7 @@ func (p *Ppu) read8(addr uint16) uint8 {
 	switch addr {
 	// PPU Status (PPUSTATUS) - RDONLY
 	case 0x2002:
-		return p.getSTATUS()
+		return p.regs[PPUSTATUS].read()
 	// PPU OAM Data (OAMDATA)
 	case 0x2004:
 		return p.regs[OAMDATA].read()

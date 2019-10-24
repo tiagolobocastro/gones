@@ -122,7 +122,7 @@ func (r *register) init(name string, val uint8) {
 	r.val = val
 	r.name = name
 }
-func (r *register) initx(name string, val uint8, onWrite func(), onRead func()) {
+func (r *register) initx(name string, val uint8, onWrite func(), onRead func() uint8) {
 	r.init(name, val)
 	r.onWrite = onWrite
 	r.onRead = onRead
@@ -130,6 +130,10 @@ func (r *register) initx(name string, val uint8, onWrite func(), onRead func()) 
 func (r *register) set(w uint8) {
 	r.val |= w
 }
+func (r *register) clr(w uint8) {
+	r.val &= w ^ 0xFF
+}
+
 func (r *register) write(w uint8) {
 	r.val = w
 
@@ -142,7 +146,7 @@ func (r *register) read() uint8 {
 	// where to control logging level without having to propagate a flag to each component,
 	// have a package level?? probably ok
 	if r.onRead != nil {
-		r.onRead()
+		return r.onRead()
 	}
 	return r.val
 }
