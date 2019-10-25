@@ -58,12 +58,13 @@ type Ppu struct {
 	interrupts iInterrupt
 }
 
-func (p *Ppu) init(busInt busInt, verbose bool, interrupts iInterrupt) {
+func (p *Ppu) init(busInt busInt, verbose bool, interrupts iInterrupt, frameBuffer []color.RGBA) {
 	p.verbose = verbose
 	p.busInt = busInt
 	p.interrupts = interrupts
 	p.cycle = 0
 	p.scanLine = 0
+	p.frameBuffer = frameBuffer
 
 	p.vRAM.init("v", 0)
 	p.tRAM.init("t", 0)
@@ -75,7 +76,7 @@ func (p *Ppu) init(busInt busInt, verbose bool, interrupts iInterrupt) {
 }
 
 func (p *Ppu) reset() {
-	p.init(p.busInt, p.verbose, p.interrupts)
+	p.init(p.busInt, p.verbose, p.interrupts, p.frameBuffer)
 }
 
 // PPU Mapping Table
@@ -213,11 +214,11 @@ func (p *Ppu) exec() {
 }
 
 func (p *Ppu) drawPixel(x uint8, y uint8, c color.RGBA) {
+	//p.screen.drawPixel(x, y, c)
+	if y > 32 {
+		return
+	}
 	p.frameBuffer[(240-1-uint16(y))*256+uint16(x)] = c
-}
-
-func (p *Ppu) getFramebuffer() *[]color.RGBA {
-	return &p.frameBuffer
 }
 
 func (p *Ppu) loadSprites() {

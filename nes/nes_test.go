@@ -39,7 +39,7 @@ func testCpuTest(nes *nes, t *testing.T, cpuTest cpuTest) {
 	nes.Run()
 
 	if strings.TrimSuffix(nes.cpu.rg.String(), "\n") != cpuTest.result {
-		t.Errorf("[%s][%s] test failed!\nGot:\t\t%s\nExpected:\t%s", t.Name(), cpuTest.name, nes.cpu.rg.String(), cpuTest.result)
+		t.Fatalf("[%s][%s] test failed!\nGot:\t\t%s\nExpected:\t%s", t.Name(), cpuTest.name, nes.cpu.rg.String(), cpuTest.result)
 	}
 
 	if cpuTest.postfix != nil {

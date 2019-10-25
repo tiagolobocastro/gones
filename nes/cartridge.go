@@ -38,6 +38,8 @@ func (c *Cartridge) defaultInit() error {
 
 func (c *Cartridge) init(cartPath string) error {
 
+	c.cart = cartPath
+
 	c.prg = new(rom)
 	c.chr = new(rom)
 	c.ram = new(ram)
@@ -118,6 +120,8 @@ type Cartridge struct {
 	chrSize byte
 
 	mapper *Mapper
+
+	cart string
 }
 
 // loads hex dumps from: https://skilldrick.github.io/easy6502/, eg:

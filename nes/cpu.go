@@ -95,13 +95,14 @@ func (c *Cpu) reset() {
 	c.rg.init()
 	c.inInt = false
 	c.rg.spc.pc.write(c.read16(0xFFFC))
+	c.curr.ins = nil
 }
 
-func (c *Cpu) tick() {
+func (c *Cpu) tick() bool {
 
 	c.clk++
 
-	c.exec()
+	return c.exec()
 }
 
 func (c *Cpu) Log(a ...interface{}) {

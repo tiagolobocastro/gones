@@ -1,7 +1,6 @@
 package gones
 
 import (
-	"image/color"
 	"log"
 )
 
@@ -14,20 +13,17 @@ func (n *nes) init(cartPath string) {
 
 	n.ram.init(0x800)
 	n.vRam.init(0x800)
+	n.screen.init(n)
 
 	n.cpu.init(n.bus.getBusInt(MapCPUId), n.verbose)
-	n.ppu.init(n.bus.getBusInt(MapPPUId), n.verbose, &n.cpu)
+	n.ppu.init(n.bus.getBusInt(MapPPUId), n.verbose, &n.cpu, n.screen.pix.Pix)
 	n.dma.init(n.bus.getBusInt(MapDMAId))
-
-	n.ppu.frameBuffer = make([]color.RGBA, 256*240)
 
 	n.bus.connect(MapCPUId, &cpuMapper{n})
 	n.bus.connect(MapPPUId, &ppuMapper{n})
 	n.bus.connect(MapDMAId, &dmaMapper{n})
 
 	n.cpu.reset()
-
-	n.screen.init(n)
 }
 
 func (n *nes) stats() {
@@ -54,9 +50,10 @@ func (n *nes) stats() {
 func (n *nes) Run() {
 	for {
 
+		cpuDone := false
 		if !n.dma.active() {
 			// cpu stalled whilst dma is active
-			n.cpu.tick()
+			cpuDone = !n.cpu.tick()
 		}
 
 		n.dma.tick()
@@ -64,7 +61,7 @@ func (n *nes) Run() {
 		// 3 ppu ticks per 1 cpu
 		n.ppu.ticks(3)
 
-		if n.cpu.curr.ins.opName == "BRK" {
+		if cpuDone {
 			break
 		}
 	}

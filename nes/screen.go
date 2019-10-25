@@ -9,19 +9,26 @@ import (
 	"log"
 	"os"
 	"runtime"
-	"time"
 )
 
 type screen struct {
 	window *pixelgl.Window
 	sprite *pixel.Sprite
 
-	nes *nes
+	nes         *nes
+	pix         *pixel.PictureData
+	frameBuffer *[]color.RGBA
 }
 
 func (s *screen) init(nes *nes) {
 	s.nes = nes
-	//s.addSprite()
+
+	s.setSprite()
+
+	if nes.cart.cart == "" {
+		return
+	}
+
 	go func() {
 		runtime.LockOSThread()
 		pixelgl.Run(s.run)
@@ -48,9 +55,6 @@ func (s *screen) run() {
 
 func (s *screen) runner() {
 
-	s.addSprite()
-	time.Sleep(time.Second)
-
 	for !s.window.Closed() {
 		win := s.window
 
@@ -72,35 +76,26 @@ func (s *screen) runner() {
 		win.Clear(emphasis_table[e])
 
 		s.sprite.Draw(win, pixel.IM.Moved(win.Bounds().Center()).ScaledXY(win.Bounds().Center(), pixel.V(2, 2)))
-
 		win.Update()
 
-		time.Sleep(time.Microsecond * 500)
-
-		s.setSprite()
+		//time.Sleep(time.Millisecond * 1)
+		s.updateSprite()
 	}
+}
+
+func (s *screen) updateSprite() {
+	s.sprite = pixel.NewSprite(s.pix, pixel.R(0, 0, 256, 240))
 }
 
 func (s *screen) setSprite() {
 
-	pic := &pixel.PictureData{
-		Pix:    *s.nes.ppu.getFramebuffer(),
-		Stride: 256,
-		Rect:   pixel.R(0, 0, 256, 240),
-	}
-
-	s.sprite = pixel.NewSprite(pic, pixel.R(0, 0, 256, 240))
-}
-
-func (s *screen) addSprite() {
-
-	pic := &pixel.PictureData{
+	s.pix = &pixel.PictureData{
 		Pix:    make([]color.RGBA, 256*240),
 		Stride: 256,
 		Rect:   pixel.R(0, 0, 256, 240),
 	}
 
-	s.sprite = pixel.NewSprite(pic, pixel.R(0, 0, 8, 8))
+	s.sprite = pixel.NewSprite(s.pix, pixel.R(0, 0, 256, 240))
 }
 
 func (s *screen) addSpriteX(X uint) {
