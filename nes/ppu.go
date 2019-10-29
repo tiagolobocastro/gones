@@ -1,7 +1,6 @@
 package gones
 
 import (
-	"golang.org/x/image/colornames"
 	"image/color"
 )
 
@@ -42,7 +41,7 @@ type Ppu struct {
 
 	rOAM ram
 	// primary OAM
-	pOAM [64]OamSprite
+	pOAM [128]OamSprite
 	// secondary OAM
 	// In addition to the primary OAM memory, the PPU contains 32 bytes (enough for 8 sprites) of secondary OAM memory
 	// that is not directly accessible by the program. During each visible scanline this secondary OAM is first cleared,
@@ -71,6 +70,7 @@ func (p *Ppu) init(busInt busInt, verbose bool, interrupts iInterrupt, frameBuff
 	p.xFine.init("x", 0)
 	p.wToggle.init("w", 0)
 	p.rOAM.initNfill(256, 0xfe)
+	p.palette.init()
 
 	p.initRegisters()
 }
@@ -122,8 +122,6 @@ func (m *ppuMapper) write8(addr uint16, val uint8) {
 		m.nes.vRam.write8(addr%2048, val)
 
 	// internal palette control
-	case addr < 0x3F20:
-		m.nes.ppu.palette.write8(addr%32, val)
 	case addr < 0x4000:
 		m.nes.ppu.palette.write8(addr%32, val)
 	}
@@ -148,7 +146,16 @@ func (p *Ppu) clear(flag uint8) {
 	}
 }
 
+var palette = [4]color.RGBA{
+	{R: 0x00, G: 0x00, B: 0xFF, A: 0xFF}, // 2 - B
+	{R: 0xFF, G: 0x00, B: 0x00, A: 0xFF}, // 1 - R
+	{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}, // B - W
+	{R: 0x00, G: 0xF0, B: 0xF0, A: 0xFF}, // 3 - LB
+}
+
 func (p *Ppu) exec() {
+	backgroundColour := p.palette.nesPalette[p.busInt.read8(0x3F00)]
+	c := backgroundColour
 
 	if p.scanLine < 240 || p.scanLine == 261 {
 		switch p.cycle {
@@ -167,28 +174,25 @@ func (p *Ppu) exec() {
 	if p.scanLine < 240 && p.cycle < 256 {
 		x := uint8(p.cycle)
 		y := uint8(p.scanLine)
-		c := colornames.Aliceblue
 
-		palette := [4]color.RGBA{
-			{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}, // B - W
-			{R: 0xFF, G: 0x00, B: 0x00, A: 0xFF}, // 1 - R
-			{R: 0x00, G: 0x00, B: 0xFF, A: 0xFF}, // 2 - B
-			{R: 0x00, G: 0xF0, B: 0xF0, A: 0xFF}, // 3 - LB
-		}
+		for i := range p.pOAM {
+			s := &p.pOAM[i]
+			if s.set && x >= s.xPos && x <= (s.xPos+7) &&
+				y >= s.yPos && y <= (s.yPos+7) {
 
-		for _, s := range p.pOAM {
-			if s.xPos <= x && x <= (s.xPos+7) {
-				if s.yPos <= y && y <= (s.yPos+7) && s.tIndex < 255 && s.set {
+				xi := x - s.xPos
+				bit := 8 - xi - 1
 
-					xi := x - s.xPos
+				b0 := (s.lsbIndex >> bit) & 1
+				b1 := (s.msbIndex >> bit) & 1
+				b := uint16(b0 | (b1 << 1))
 
-					b0 := (s.lsbIndex >> (8 - xi - 1)) & 1
-					b1 := (s.msbIndex >> (8 - xi - 1)) & 1
-					b := b0 | (b1 << 1)
+				palette := uint16(s.attributes & 0x3)
 
-					c = palette[b]
-					break
-				}
+				// 4 background + 4 sprite palettes
+				index := p.busInt.read8(0x3F00 + (palette+4)*4 + b)
+				c = p.palette.nesPalette[index]
+				break
 			}
 		}
 
@@ -214,54 +218,53 @@ func (p *Ppu) exec() {
 }
 
 func (p *Ppu) drawPixel(x uint8, y uint8, c color.RGBA) {
-	//p.screen.drawPixel(x, y, c)
-	if y > 32 {
-		return
-	}
 	p.frameBuffer[(240-1-uint16(y))*256+uint16(x)] = c
 }
 
 func (p *Ppu) loadSprites() {
+	_, spriteSizeY := p.getSpriteSize()
+	patternAddr := p.getSpritePattern()
 	for i := range p.sOAM {
+
 		if !p.sOAM[i].set {
 			continue
 		}
 
 		p.pOAM[i] = p.sOAM[i]
-		_, spriteSizeY := p.getSpriteSize()
+		s := &p.pOAM[i]
 
 		addr := uint16(0)
 		if spriteSizeY == 16 {
 			// taken from HydraNes, have not verified this
-			addr = ((uint16(p.pOAM[i].tIndex) & 1) * p.getSpritePattern()) + ((uint16(p.pOAM[i].tIndex) & (1 ^ 0xFFFF)) * 16)
+			addr = ((uint16(s.tIndex) & 1) * p.getSpritePattern()) + ((uint16(s.tIndex) & (1 ^ 0xFFFF)) * 16)
 		} else {
-			addr = p.getSpritePattern() + uint16(p.pOAM[i].tIndex)*16
+			addr = patternAddr + uint16(s.tIndex)*16
 		}
 
 		// calculate line inside sprite for the next scanLine
-		lSpY := (p.scanLine + 1 - int(p.pOAM[i].yPos)) % int(spriteSizeY)
+		lSpY := (p.scanLine + 1 - int(s.yPos)) % int(spriteSizeY)
 
 		// vertical flip
-		if (p.pOAM[i].attributes & 0x80) != 0 {
+		if (s.attributes & 0x80) != 0 {
 			lSpY ^= int(spriteSizeY) - 1
 		}
 
 		addr += uint16(lSpY) + uint16(lSpY&8)
 
-		p.pOAM[i].lsbIndex = p.busInt.read8(addr)
-		p.pOAM[i].msbIndex = p.busInt.read8(addr + 8)
+		s.lsbIndex = p.busInt.read8(addr)
+		s.msbIndex = p.busInt.read8(addr + 8)
 
 		// horizontal flip
-		if (p.pOAM[i].attributes & 0x40) != 0 {
-			p.pOAM[i].lsbIndex = reverseByte(p.pOAM[i].lsbIndex)
-			p.pOAM[i].msbIndex = reverseByte(p.pOAM[i].msbIndex)
+		if (s.attributes & 0x40) != 0 {
+			s.lsbIndex = reverseByte(s.lsbIndex)
+			s.msbIndex = reverseByte(s.msbIndex)
 		}
 	}
 }
 
 func reverseByte(b uint8) uint8 {
-	return ((b & 0x1) << 7) | ((b & 0x2) << 5) |
-		((b & 0x4) << 3) | ((b & 0x8) << 1) |
+	return ((b & 0x01) << 7) | ((b & 0x02) << 5) |
+		((b & 0x04) << 3) | ((b & 0x08) << 1) |
 		((b & 0x10) >> 1) | ((b & 0x20) >> 3) |
 		((b & 0x40) >> 5) | ((b & 0x80) >> 7)
 }
@@ -269,10 +272,11 @@ func reverseByte(b uint8) uint8 {
 func (p *Ppu) evalSprites() {
 	spriteCount := 0
 	evalScan := p.scanLine + 1
+	_, yLen := p.getSpriteSize()
 	for i := uint16(0); i < 64; i++ {
 
-		yPos := p.rOAM.read8(i*4 + 0)
-		_, yLen := p.getSpriteSize()
+		// 0 yPos, 1 index, 2 attr, 3 xPos => i*4
+		yPos := p.rOAM.read8(i * 4)
 		yPosEnd := yPos + yLen
 
 		// if the scanLine intersects the sprite, it's a "hit"
@@ -295,7 +299,7 @@ func (p *Ppu) evalSprites() {
 
 func (p *Ppu) clearSecOAM() {
 	for i := range p.sOAM {
-		// set back to defaults
+		// set back defaults
 		p.sOAM[i] = OamSprite{
 			yPos:       0xFF,
 			tIndex:     0xFF,
@@ -314,18 +318,6 @@ func (p *Ppu) ticks(nTicks int) {
 		p.exec()
 	}
 }
-
-func (p *Ppu) tick() {
-
-	// first do the work, and only then tick?
-
-	// let's add a simple sprite display or something like that
-	// so let's do the bare minimum for the ppu setup
-
-	p.tick()
-}
-
-// cpu can read from the ppu through the control registers
 
 // BusInt
 func (p *Ppu) read8(addr uint16) uint8 {

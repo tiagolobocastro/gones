@@ -57,7 +57,7 @@ type Cpu struct {
 	rg  registers
 	apu apu
 
-	clk      uint
+	clk      int
 	clkExtra uint8
 
 	verbose      bool

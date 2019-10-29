@@ -49,21 +49,18 @@ func (n *nes) stats() {
 
 func (n *nes) Run() {
 	for {
-
-		cpuDone := false
 		if !n.dma.active() {
 			// cpu stalled whilst dma is active
-			cpuDone = !n.cpu.tick()
+			if !n.cpu.tick() {
+				// so we can run tests
+				break
+			}
 		}
 
 		n.dma.tick()
 
 		// 3 ppu ticks per 1 cpu
 		n.ppu.ticks(3)
-
-		if cpuDone {
-			break
-		}
 	}
 }
 

@@ -194,7 +194,7 @@ func (p *Ppu) readPPUData() uint8 {
 	return val
 }
 func (p *Ppu) writePPUData() {
-	val := p.regs[PPUDATA].read()
+	val := p.regs[PPUDATA].val
 	p.busInt.write8(p.vRAM.val, val)
 
 	p.vRAM.val += p.getVRAMAddrInc()
