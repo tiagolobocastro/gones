@@ -54,20 +54,13 @@ func (n *nes) Step(seconds float64) {
 	runCycles := int(cyclesPerSecond)
 
 	ticks := 1
-	extra := true
 
 	for runCycles > 0 {
 		if !n.dma.active() {
 			// cpu stalled whilst dma is active
-			n.cpu.tick()
+			ticks = int(n.cpu.exec())
 		} else {
-			n.cpu.clkExtra = 1
-		}
-
-		ticks = 1
-		if extra {
-			ticks = n.cpu.clkExtra
-			n.cpu.clkExtra = 0
+			ticks = 1
 		}
 
 		// 3 ppu ticks per 1 cpu
@@ -87,18 +80,15 @@ func (n *nes) Run() {
 	n.screen.run(true)
 
 	for {
+		ticks := 1
 		if !n.dma.active() {
 			// cpu stalled whilst dma is active
-			if !n.cpu.tick() {
-				// so we can run tests
-				break
-			}
+			ticks = n.cpu.tick()
 		}
 
-		n.dma.tick()
-
 		// 3 ppu ticks per 1 cpu
-		n.ppu.ticks(3)
+		n.ppu.ticks(3 * ticks)
+		n.dma.ticks(ticks)
 	}
 }
 

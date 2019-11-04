@@ -98,12 +98,6 @@ func (c *Cpu) reset() {
 	c.curr.ins = nil
 }
 
-func (c *Cpu) tick() bool {
-
-	c.clk++
-	return c.exec()
-}
-
 func (c *Cpu) Log(a ...interface{}) {
 	if c.verbose {
 		log.Print(a...)
@@ -150,16 +144,14 @@ func (c *Cpu) nmi() {
 	c.clk += 7
 }
 
-func (c *Cpu) exec() bool {
+func (c *Cpu) tick() int {
 
-	// increment now or at the end?
-	c.clk += 1
+	ticks := c.exec()
+	c.clk += ticks
+	return ticks
+}
 
-	// some instructions take more than 1 clock cycle
-	if c.clkExtra > 0 {
-		c.clkExtra--
-		return true
-	}
+func (c *Cpu) exec() int {
 
 	switch c.interrupts {
 	case cpuIntNMI:
@@ -173,7 +165,7 @@ func (c *Cpu) exec() bool {
 	if c.curr.ins.opLength == 0 {
 		c.Logf("Read 0x%02x - %s - which is an invalid instruction!\n", opCode, c.curr.ins.opName)
 		c.rg.spc.pc.val += uint16(c.curr.ins.opLength)
-		return false
+		return int(c.curr.ins.opCycles)
 	}
 
 	if c.verbose {
@@ -183,18 +175,16 @@ func (c *Cpu) exec() bool {
 	c.curr.ins.eval()
 	c.rg.spc.pc.val += uint16(c.curr.ins.opLength)
 
-	// also need to add the page cross extra cycles
-	c.clkExtra = int(c.curr.ins.opCycles) - 1
-
 	if c.verbose {
 		c.Logf("%s\n", c.rg)
 	}
 
 	if c.curr.ins.opName == "BRK" {
 		// probably need to remove this...
-		return false
+		return 0
 	}
-	return true
+
+	return int(c.curr.ins.opCycles)
 }
 
 func (c *Cpu) fetch() uint32 {

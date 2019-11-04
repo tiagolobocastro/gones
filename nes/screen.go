@@ -66,6 +66,7 @@ func (s *screen) runner() {
 	second := time.Tick(time.Second)
 
 	last := time.Now()
+	lastFrames := 0
 	for !s.window.Closed() {
 
 		dt := time.Since(last).Seconds()
@@ -93,8 +94,9 @@ func (s *screen) runner() {
 
 		select {
 		case <-second:
-			s.window.SetTitle(fmt.Sprintf("%s | FPS: %d", "GoNes", s.nes.ppu.frames))
-			s.nes.ppu.frames = 0
+			frames := s.nes.ppu.frames - lastFrames
+			s.window.SetTitle(fmt.Sprintf("%s | FPS: %d", "GoNes", frames))
+			lastFrames = s.nes.ppu.frames
 		default:
 		}
 	}
@@ -102,6 +104,7 @@ func (s *screen) runner() {
 
 func (s *screen) freeRunner() {
 	second := time.Tick(time.Second)
+	lastFrames := 0
 	for !s.window.Closed() {
 		// could we draw only after vblank?
 		s.draw()
@@ -109,8 +112,9 @@ func (s *screen) freeRunner() {
 
 		select {
 		case <-second:
-			s.window.SetTitle(fmt.Sprintf("%s | FPS: %d", "GoNes", s.nes.ppu.frames))
-			s.nes.ppu.frames = 0
+			frames := s.nes.ppu.frames - lastFrames
+			s.window.SetTitle(fmt.Sprintf("%s | FPS: %d", "GoNes", frames))
+			lastFrames = s.nes.ppu.frames
 		default:
 		}
 	}

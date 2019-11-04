@@ -85,6 +85,8 @@ func (p *Ppu) init(busInt busInt, verbose bool, interrupts iInterrupt, frameBuff
 	p.palette.init()
 
 	p.initRegisters()
+	p.clearSecOAM()
+	p.clearPrimOAM()
 }
 
 func (p *Ppu) reset() {
@@ -118,17 +120,14 @@ func (p *Ppu) clear(flag uint8) {
 }
 
 func (p *Ppu) exec() {
-	backgroundIndex := p.busInt.read8(0x3F00)
-	backgroundColour := p.palette.nesPalette[backgroundIndex]
-	c := backgroundColour
 
-	if p.scanLine < 240 || p.scanLine == 261 {
+	if p.scanLine < 240 {
 		switch p.cycle {
 		// the ppu "works" these every cycle and it might more efficient for us to do the same
 		// but now for simplicity let's bundle each task
 		case 1:
 			p.clearSecOAM()
-			if p.scanLine == 261 {
+			if p.scanLine == -1 {
 				p.regs[PPUSTATUS].clr(statusSpriteOverflow | statusSprite0Hit)
 			}
 		case 257:
@@ -138,16 +137,22 @@ func (p *Ppu) exec() {
 		}
 	}
 
-	if p.scanLine < 240 && p.cycle < 256 {
+	if p.scanLine > -1 && p.scanLine < 240 && p.cycle < 256 {
 		x := uint8(p.cycle)
 		y := uint8(p.scanLine)
 
+		backgroundIndex := p.busInt.read8(0x3F00)
+		backgroundColour := p.palette.nesPalette[backgroundIndex]
+		c := backgroundColour
+
 		for i := range p.pOAM {
 			s := &p.pOAM[i]
-			if s.set && x >= s.xPos && x <= (s.xPos+7) &&
-				y >= s.yPos && y <= (s.yPos+7) {
 
-				xi := x - s.xPos
+			xi := uint(x) - uint(s.xPos)
+			yi := uint(y) - uint(s.yPos)
+
+			if yi < 8 && xi < 8 {
+
 				bit := 8 - xi - 1
 
 				b0 := (s.lsbIndex >> bit) & 1
@@ -167,7 +172,6 @@ func (p *Ppu) exec() {
 	}
 
 	p.cycle += 1
-
 	if p.cycle > 340 {
 		p.scanLine += 1
 		p.cycle = 0
@@ -176,8 +180,8 @@ func (p *Ppu) exec() {
 			p.raise(cpuIntNMI)
 		}
 
-		if p.scanLine > 261 {
-			p.scanLine = 0
+		if p.scanLine > 260 {
+			p.scanLine = -1
 			// may already be cleared as reading from PPSTATUS will do so
 			p.clear(cpuIntNMI)
 		}
@@ -268,6 +272,21 @@ func (p *Ppu) evalSprites() {
 	}
 }
 
+func (p *Ppu) clearPrimOAM() {
+	for i := range p.pOAM {
+		// set back defaults
+		p.pOAM[i] = OamSprite{
+			yPos:       0xFF,
+			tIndex:     0xFF,
+			attributes: 0xFF,
+			xPos:       0xFF,
+			lsbIndex:   0x00,
+			msbIndex:   0x00,
+			set:        false,
+		}
+	}
+}
+
 func (p *Ppu) clearSecOAM() {
 	for i := range p.sOAM {
 		// set back defaults
@@ -284,7 +303,6 @@ func (p *Ppu) clearSecOAM() {
 }
 
 func (p *Ppu) tick() {
-
 	p.clock++
 	p.exec()
 }
