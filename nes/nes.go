@@ -2,6 +2,7 @@ package gones
 
 import (
 	"log"
+	"time"
 )
 
 func (n *nes) init(cartPath string) {
@@ -47,7 +48,44 @@ func (n *nes) stats() {
 	log.Printf("\nTotal instructions: %d\nValid instructions: %d\nImplemented instructions: %d\nRemainingValid: %d\n", nTotal, nValid, nImp, nValid-nImp)
 }
 
+func (n *nes) Step(seconds float64) {
+	cyclesPerSecond := float64(1790000)
+	cyclesPerSecond *= seconds
+	runCycles := int(cyclesPerSecond)
+
+	ticks := 1
+	extra := true
+
+	for runCycles > 0 {
+		if !n.dma.active() {
+			// cpu stalled whilst dma is active
+			n.cpu.tick()
+		} else {
+			n.cpu.clkExtra = 1
+		}
+
+		ticks = 1
+		if extra {
+			ticks = n.cpu.clkExtra
+			n.cpu.clkExtra = 0
+		}
+
+		// 3 ppu ticks per 1 cpu
+		n.ppu.ticks(3 * ticks)
+		n.dma.ticks(ticks)
+
+		runCycles -= ticks
+	}
+}
+
+func (n *nes) Run2() {
+	n.screen.run(false)
+	time.Sleep(time.Second * 100)
+}
+
 func (n *nes) Run() {
+	n.screen.run(true)
+
 	for {
 		if !n.dma.active() {
 			// cpu stalled whilst dma is active

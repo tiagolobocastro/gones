@@ -58,7 +58,7 @@ type Cpu struct {
 	apu apu
 
 	clk      int
-	clkExtra uint8
+	clkExtra int
 
 	verbose      bool
 	disableBreak bool
@@ -101,7 +101,6 @@ func (c *Cpu) reset() {
 func (c *Cpu) tick() bool {
 
 	c.clk++
-
 	return c.exec()
 }
 
@@ -177,14 +176,19 @@ func (c *Cpu) exec() bool {
 		return false
 	}
 
-	c.LogAf(30, "0x%04x: 0x%02x - %s %s", c.rg.spc.pc.val, opCode, c.curr.ins.opName, c.getOperandString(c.curr.ins))
+	if c.verbose {
+		c.LogAf(30, "0x%04x: 0x%02x - %s %s", c.rg.spc.pc.val, opCode, c.curr.ins.opName, c.getOperandString(c.curr.ins))
+	}
+
 	c.curr.ins.eval()
 	c.rg.spc.pc.val += uint16(c.curr.ins.opLength)
 
 	// also need to add the page cross extra cycles
-	c.clkExtra = c.curr.ins.opCycles
+	c.clkExtra = int(c.curr.ins.opCycles) - 1
 
-	c.Logf("%s\n", c.rg)
+	if c.verbose {
+		c.Logf("%s\n", c.rg)
+	}
 
 	if c.curr.ins.opName == "BRK" {
 		// probably need to remove this...
@@ -194,10 +198,9 @@ func (c *Cpu) exec() bool {
 }
 
 func (c *Cpu) fetch() uint32 {
-	op0 := c.read8(c.rg.spc.pc.val)
-	op1 := c.read8(c.rg.spc.pc.val + 1)
+	op01 := c.read16(c.rg.spc.pc.val)
 	op2 := c.read8(c.rg.spc.pc.val + 2)
-	return uint32(op0) | uint32(op1)<<8 | uint32(op2)<<16
+	return uint32(op01) | uint32(op2)<<16
 }
 
 func (c *Cpu) brk() {

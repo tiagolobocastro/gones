@@ -1,23 +1,25 @@
 package gones
 
 import (
+	"fmt"
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/pixelgl"
-	"golang.org/x/image/colornames"
 	"image/color"
 	_ "image/png" // ouch! needs to be here
 	"log"
 	"os"
 	"runtime"
+	"time"
 )
 
 type screen struct {
 	window *pixelgl.Window
 	sprite *pixel.Sprite
 
-	nes         *nes
-	pix         *pixel.PictureData
-	frameBuffer *[]color.RGBA
+	nes *nes
+	pix *pixel.PictureData
+
+	freeRun bool
 }
 
 func (s *screen) init(nes *nes) {
@@ -28,20 +30,23 @@ func (s *screen) init(nes *nes) {
 	if nes.cart.cart == "" {
 		return
 	}
+}
 
+func (s *screen) run(freeRun bool) {
 	go func() {
+		s.freeRun = freeRun
 		runtime.LockOSThread()
-		pixelgl.Run(s.run)
+		pixelgl.Run(s.runThread)
 		os.Exit(0)
 	}()
 }
 
-func (s *screen) run() {
+func (s *screen) runThread() {
 
 	cfg := pixelgl.WindowConfig{
 		Title:  "GoNes",
 		Bounds: pixel.R(0, 0, 1024, 768),
-		VSync:  true,
+		VSync:  false,
 	}
 	window, err := pixelgl.NewWindow(cfg)
 	if err != nil {
@@ -50,37 +55,70 @@ func (s *screen) run() {
 
 	s.window = window
 
-	s.runner()
+	if s.freeRun {
+		s.freeRunner()
+	} else {
+		s.runner()
+	}
 }
 
 func (s *screen) runner() {
+	second := time.Tick(time.Second)
 
+	last := time.Now()
 	for !s.window.Closed() {
-		win := s.window
 
-		e := (s.nes.ppu.regs[PPUMASK].val & 0xE0) >> 5
+		dt := time.Since(last).Seconds()
+		last = time.Now()
 
-		emphasis_table := []color.Color{
-			colornames.Whitesmoke,
-			/* 001 Red      */ colornames.Red, // 1239,  915,  743,
-			/* 010 Green    */ colornames.Green, //  794, 1086,  882,
-			/* 011 Yellow   */ colornames.Yellow, // 1019,  980,  653,
-			/* 100 Blue     */ colornames.Blue, //  905, 1026, 1277,
-			/* 101 Magenta  */ colornames.Magenta, // 1023,  908,  979,
-			/* 110 Cyan     */ colornames.Cyan, //  741,  987, 1001,
-			/* 111 Black    */ colornames.Black, //  750,  750,  750
+		// not quite right... if we click the window, it cause issues -> leads us to execute
+		// in big "chunks" and therefore loosing frames
+		// also same in debug mode...
+		// 0.02 seems to be small enough to make this imperceptible and allowing it to "catch up"
+		// doesn't work for debug as the nes step is slower, increasing the dt
+		if dt < 0.02 {
+			s.nes.Step(dt)
+		} else {
+			fmt.Printf("TOO LONG: %v!\n", dt)
 		}
 
-		// this is wrong btw, but it's a nice way to test the nes atm
-		// todo: how to apply the emphasis!?
-		win.Clear(emphasis_table[e])
+		// not good at the moment because the window updates do not match the ppu steps, unless we make sure
+		// we always break out of the step after a vblank?
+		// perhaps would be better if we run the nes on a separate thread and use channels to control when the
+		// nes can execute?
 
-		s.sprite.Draw(win, pixel.IM.Moved(win.Bounds().Center()).ScaledXY(win.Bounds().Center(), pixel.V(2, 2)))
-		win.Update()
+		// could we draw only after vblank?
+		s.draw()
+		s.window.Update()
 
-		//time.Sleep(time.Millisecond * 1)
-		s.updateSprite()
+		select {
+		case <-second:
+			s.window.SetTitle(fmt.Sprintf("%s | FPS: %d", "GoNes", s.nes.ppu.frames))
+			s.nes.ppu.frames = 0
+		default:
+		}
 	}
+}
+
+func (s *screen) freeRunner() {
+	second := time.Tick(time.Second)
+	for !s.window.Closed() {
+		// could we draw only after vblank?
+		s.draw()
+		s.window.Update()
+
+		select {
+		case <-second:
+			s.window.SetTitle(fmt.Sprintf("%s | FPS: %d", "GoNes", s.nes.ppu.frames))
+			s.nes.ppu.frames = 0
+		default:
+		}
+	}
+}
+
+func (s *screen) draw() {
+	s.sprite.Draw(s.window, pixel.IM.Moved(s.window.Bounds().Center()).ScaledXY(s.window.Bounds().Center(), pixel.V(2, 2)))
+	s.updateSprite()
 }
 
 func (s *screen) updateSprite() {

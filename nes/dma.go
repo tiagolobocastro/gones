@@ -28,10 +28,17 @@ func (d *dma) active() bool {
 	return d.nBytes > 0
 }
 
+func (d *dma) ticks(nTicks int) {
+
+	for i := 0; i < nTicks; i++ {
+		d.tick()
+	}
+}
+
 func (d *dma) tick() {
 
+	// clock required for the delay logic
 	d.clock++
-
 	d.exec()
 }
 

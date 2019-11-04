@@ -286,7 +286,9 @@ func (c *Cpu) setupIns() {
 }
 
 func (c *Cpu) unhandled() {
-	c.Logf("oops... unhandled instruction!\n")
+	message := "oops... unhandled instruction!\n"
+	c.Logf(message)
+	panic(message)
 }
 
 func (c *Cpu) addIns(opName string, opCode uint8, opLength uint8, opCycles uint8, opPageCycles uint8, addrMode uint8) {

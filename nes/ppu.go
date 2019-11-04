@@ -26,8 +26,10 @@ type OamSprite struct {
 type Ppu struct {
 	busInt
 
+	clock    int
 	cycle    int
 	scanLine int
+	frames   int
 	verbose  bool
 
 	// cpu mapper registers
@@ -41,7 +43,7 @@ type Ppu struct {
 
 	rOAM ram
 	// primary OAM
-	pOAM [128]OamSprite
+	pOAM [8]OamSprite
 	// secondary OAM
 	// In addition to the primary OAM memory, the PPU contains 32 bytes (enough for 8 sprites) of secondary OAM memory
 	// that is not directly accessible by the program. During each visible scanline this secondary OAM is first cleared,
@@ -54,6 +56,9 @@ type Ppu struct {
 
 	frameBuffer []color.RGBA
 
+	buffered   bool
+	backBuffer []color.RGBA
+
 	interrupts iInterrupt
 }
 
@@ -61,9 +66,16 @@ func (p *Ppu) init(busInt busInt, verbose bool, interrupts iInterrupt, frameBuff
 	p.verbose = verbose
 	p.busInt = busInt
 	p.interrupts = interrupts
+	p.clock = 0
 	p.cycle = 0
 	p.scanLine = 0
+	p.frames = 0
 	p.frameBuffer = frameBuffer
+
+	p.buffered = false
+	if p.buffered {
+		p.backBuffer = make([]color.RGBA, 256*240)
+	}
 
 	p.vRAM.init("v", 0)
 	p.tRAM.init("t", 0)
@@ -79,59 +91,18 @@ func (p *Ppu) reset() {
 	p.init(p.busInt, p.verbose, p.interrupts, p.frameBuffer)
 }
 
-// PPU Mapping Table
-// Address range 	Size 	Device
-// $0000-$0FFF 		$1000 	Pattern table 0
-// $1000-$1FFF 		$1000 	Pattern table 1
-// $2000-$23FF 		$0400 	Nametable 0
-// $2400-$27FF 		$0400 	Nametable 1
-// $2800-$2BFF 		$0400 	Nametable 2
-// $2C00-$2FFF 		$0400 	Nametable 3
-// $3000-$3EFF 		$0F00 	Mirrors of $2000-$2EFF
-// $3F00-$3F1F 		$0020 	Palette RAM indexes
-// $3F20-$3FFF 		$00E0 	Mirrors of $3F00-$3F1F
-type ppuMapper struct {
-	*nes
-}
-
-func (m *ppuMapper) read8(addr uint16) uint8 {
-	switch {
-	// PPU VRAM or controlled via the Cartridge Mapper
-	case addr < 0x2000:
-		return m.nes.cart.mapper.read8(addr % 2048)
-	case addr < 0x3000:
-		return m.nes.vRam.read8(addr % 2048)
-	case addr < 0x3F00:
-		return m.nes.vRam.read8(addr % 2048)
-
-	// internal palette control
-	case addr < 0x3F20:
-		return m.nes.ppu.palette.read8(addr % 32)
-	case addr < 0x4000:
-		return m.nes.ppu.palette.read8(addr % 32)
-	}
-	return 0
-}
-
-func (m *ppuMapper) write8(addr uint16, val uint8) {
-	switch {
-	// PPU VRAM or controlled via the Cartridge Mapper
-	case addr < 0x3000:
-		m.nes.vRam.write8(addr%2048, val)
-	case addr < 0x3F00:
-		m.nes.vRam.write8(addr%2048, val)
-
-	// internal palette control
-	case addr < 0x4000:
-		m.nes.ppu.palette.write8(addr%32, val)
-	}
-}
-
 // interrupt
 // only look at the CPU NMI for now
 // need to implement the interrupt delay as well since the cpu and ppu and not on the same clock
 func (p *Ppu) raise(flag uint8) {
 	if (flag & cpuIntNMI) != 0 {
+
+		if p.buffered {
+			p.backBuffer, p.frameBuffer = p.frameBuffer, p.backBuffer
+		}
+
+		p.frames++
+
 		p.regs[PPUSTATUS].val |= 0x80
 
 		if p.getNMIVertical() == 1 {
@@ -146,19 +117,15 @@ func (p *Ppu) clear(flag uint8) {
 	}
 }
 
-var palette = [4]color.RGBA{
-	{R: 0x00, G: 0x00, B: 0xFF, A: 0xFF}, // 2 - B
-	{R: 0xFF, G: 0x00, B: 0x00, A: 0xFF}, // 1 - R
-	{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}, // B - W
-	{R: 0x00, G: 0xF0, B: 0xF0, A: 0xFF}, // 3 - LB
-}
-
 func (p *Ppu) exec() {
-	backgroundColour := p.palette.nesPalette[p.busInt.read8(0x3F00)]
+	backgroundIndex := p.busInt.read8(0x3F00)
+	backgroundColour := p.palette.nesPalette[backgroundIndex]
 	c := backgroundColour
 
 	if p.scanLine < 240 || p.scanLine == 261 {
 		switch p.cycle {
+		// the ppu "works" these every cycle and it might more efficient for us to do the same
+		// but now for simplicity let's bundle each task
 		case 1:
 			p.clearSecOAM()
 			if p.scanLine == 261 {
@@ -218,7 +185,11 @@ func (p *Ppu) exec() {
 }
 
 func (p *Ppu) drawPixel(x uint8, y uint8, c color.RGBA) {
-	p.frameBuffer[(240-1-uint16(y))*256+uint16(x)] = c
+	if !p.buffered {
+		p.frameBuffer[(240-1-uint16(y))*256+uint16(x)] = c
+	} else {
+		p.backBuffer[(240-1-uint16(y))*256+uint16(x)] = c
+	}
 }
 
 func (p *Ppu) loadSprites() {
@@ -312,10 +283,16 @@ func (p *Ppu) clearSecOAM() {
 	}
 }
 
+func (p *Ppu) tick() {
+
+	p.clock++
+	p.exec()
+}
+
 func (p *Ppu) ticks(nTicks int) {
 
 	for i := 0; i < nTicks; i++ {
-		p.exec()
+		p.tick()
 	}
 }
 
