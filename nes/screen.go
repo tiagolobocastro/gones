@@ -129,6 +129,7 @@ func (s *screen) freeRunner() {
 }
 
 func (s *screen) draw() {
+	// seems to be required for reasons unknown
 	s.updateSprite()
 	s.sprite.Draw(s.window, pixel.IM.Moved(s.window.Bounds().Center()).ScaledXY(s.window.Bounds().Center(), pixel.V(2, 2)))
 }
@@ -144,6 +145,8 @@ func (s *screen) setSprite() {
 		Stride: 256,
 		Rect:   pixel.R(0, 0, 256, 240),
 	}
+
+	s.sprite = pixel.NewSprite(s.pix, pixel.R(0, 0, 256, 240))
 }
 
 func (s *screen) addSpriteX(X uint) {
