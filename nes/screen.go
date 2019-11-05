@@ -63,14 +63,16 @@ func (s *screen) runThread() {
 }
 
 func (s *screen) runner() {
-	second := time.Tick(time.Second)
+	fpsChannel := time.Tick(time.Second)
+	fpsLastFrames := 0
 
-	last := time.Now()
-	lastFrames := 0
+	lastLoopStamp := time.Now()
+	lastLoopFrames := 0
+
 	for !s.window.Closed() {
 
-		dt := time.Since(last).Seconds()
-		last = time.Now()
+		dt := time.Since(lastLoopStamp).Seconds()
+		lastLoopStamp = time.Now()
 
 		// not quite right... if we click the window, it cause issues -> leads us to execute
 		// in big "chunks" and therefore loosing frames
@@ -79,8 +81,6 @@ func (s *screen) runner() {
 		// doesn't work for debug as the nes step is slower, increasing the dt
 		if dt < 0.02 {
 			s.nes.Step(dt)
-		} else {
-			fmt.Printf("TOO LONG: %v!\n", dt)
 		}
 
 		// not good at the moment because the window updates do not match the ppu steps, unless we make sure
@@ -88,41 +88,45 @@ func (s *screen) runner() {
 		// perhaps would be better if we run the nes on a separate thread and use channels to control when the
 		// nes can execute?
 
-		// could we draw only after vblank?
-		s.draw()
-		s.window.Update()
+		// draw only after the ppu is finished poking the pixels -> after vblank when we increment the frames
+		// todo: use the interrupt interconnect to detect this
+		if s.nes.ppu.frames > lastLoopFrames {
+			s.draw()
+			s.window.Update()
+			lastLoopFrames = s.nes.ppu.frames
+		}
 
 		select {
-		case <-second:
-			frames := s.nes.ppu.frames - lastFrames
+		case <-fpsChannel:
+			frames := s.nes.ppu.frames - fpsLastFrames
 			s.window.SetTitle(fmt.Sprintf("%s | FPS: %d", "GoNes", frames))
-			lastFrames = s.nes.ppu.frames
+			fpsLastFrames = s.nes.ppu.frames
 		default:
 		}
 	}
 }
 
 func (s *screen) freeRunner() {
-	second := time.Tick(time.Second)
-	lastFrames := 0
+	fpsChannel := time.Tick(time.Second)
+	fpsLastFrames := 0
 	for !s.window.Closed() {
 		// could we draw only after vblank?
 		s.draw()
 		s.window.Update()
 
 		select {
-		case <-second:
-			frames := s.nes.ppu.frames - lastFrames
+		case <-fpsChannel:
+			frames := s.nes.ppu.frames - fpsLastFrames
 			s.window.SetTitle(fmt.Sprintf("%s | FPS: %d", "GoNes", frames))
-			lastFrames = s.nes.ppu.frames
+			fpsLastFrames = s.nes.ppu.frames
 		default:
 		}
 	}
 }
 
 func (s *screen) draw() {
-	s.sprite.Draw(s.window, pixel.IM.Moved(s.window.Bounds().Center()).ScaledXY(s.window.Bounds().Center(), pixel.V(2, 2)))
 	s.updateSprite()
+	s.sprite.Draw(s.window, pixel.IM.Moved(s.window.Bounds().Center()).ScaledXY(s.window.Bounds().Center(), pixel.V(2, 2)))
 }
 
 func (s *screen) updateSprite() {

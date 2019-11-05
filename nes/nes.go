@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+const nesBaseFrequency = 1790000
+
 func (n *nes) init(cartPath string) {
 	n.bus.init()
 
@@ -49,18 +51,16 @@ func (n *nes) stats() {
 }
 
 func (n *nes) Step(seconds float64) {
-	cyclesPerSecond := float64(1790000)
+	cyclesPerSecond := float64(nesBaseFrequency)
 	cyclesPerSecond *= seconds
 	runCycles := int(cyclesPerSecond)
 
-	ticks := 1
-
 	for runCycles > 0 {
+
+		ticks := 1
 		if !n.dma.active() {
 			// cpu stalled whilst dma is active
 			ticks = int(n.cpu.exec())
-		} else {
-			ticks = 1
 		}
 
 		// 3 ppu ticks per 1 cpu
