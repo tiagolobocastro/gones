@@ -20,6 +20,9 @@ type screen struct {
 	pix *pixel.PictureData
 
 	freeRun bool
+
+	fpsChannel   <-chan time.Time
+	fpsLastFrame int
 }
 
 func (s *screen) init(nes *nes) {
@@ -46,7 +49,7 @@ func (s *screen) runThread() {
 	cfg := pixelgl.WindowConfig{
 		Title:  "GoNes",
 		Bounds: pixel.R(0, 0, 1024, 768),
-		VSync:  false,
+		VSync:  true,
 	}
 	window, err := pixelgl.NewWindow(cfg)
 	if err != nil {
@@ -54,6 +57,8 @@ func (s *screen) runThread() {
 	}
 
 	s.window = window
+	s.fpsChannel = time.Tick(time.Second)
+	s.fpsLastFrame = 0
 
 	if s.freeRun {
 		s.freeRunner()
@@ -63,9 +68,6 @@ func (s *screen) runThread() {
 }
 
 func (s *screen) runner() {
-	fpsChannel := time.Tick(time.Second)
-	fpsLastFrames := 0
-
 	lastLoopStamp := time.Now()
 	lastLoopFrames := 0
 
@@ -96,31 +98,33 @@ func (s *screen) runner() {
 			lastLoopFrames = s.nes.ppu.frames
 		}
 
-		select {
-		case <-fpsChannel:
-			frames := s.nes.ppu.frames - fpsLastFrames
-			s.window.SetTitle(fmt.Sprintf("%s | FPS: %d", "GoNes", frames))
-			fpsLastFrames = s.nes.ppu.frames
-		default:
-		}
+		s.updateFpsTitle()
+	}
+}
+
+func (s *screen) updateFpsTitle() {
+	select {
+	case <-s.fpsChannel:
+		frames := s.nes.ppu.frames - s.fpsLastFrame
+		s.fpsLastFrame = s.nes.ppu.frames
+
+		s.window.SetTitle(fmt.Sprintf("%s | FPS: %d", "GoNes", frames))
+	default:
 	}
 }
 
 func (s *screen) freeRunner() {
-	fpsChannel := time.Tick(time.Second)
-	fpsLastFrames := 0
+	lastLoopFrames := 0
 	for !s.window.Closed() {
-		// could we draw only after vblank?
-		s.draw()
-		s.window.Update()
-
-		select {
-		case <-fpsChannel:
-			frames := s.nes.ppu.frames - fpsLastFrames
-			s.window.SetTitle(fmt.Sprintf("%s | FPS: %d", "GoNes", frames))
-			fpsLastFrames = s.nes.ppu.frames
-		default:
+		// draw only after the ppu is finished poking the pixels -> after vblank when we increment the frames
+		// todo: use the interrupt interconnect to detect this
+		if s.nes.ppu.frames > lastLoopFrames {
+			s.draw()
+			s.window.Update()
+			lastLoopFrames = s.nes.ppu.frames
 		}
+
+		s.updateFpsTitle()
 	}
 }
 
@@ -140,8 +144,6 @@ func (s *screen) setSprite() {
 		Stride: 256,
 		Rect:   pixel.R(0, 0, 256, 240),
 	}
-
-	s.sprite = pixel.NewSprite(s.pix, pixel.R(0, 0, 256, 240))
 }
 
 func (s *screen) addSpriteX(X uint) {
