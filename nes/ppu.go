@@ -41,6 +41,13 @@ type Ppu struct {
 	xFine   register   // Fine X scroll (3 bits)
 	wToggle register   // First or second write toggle (1 bit)
 
+	// background
+	nametableEntry uint8
+	attributeEntry uint8
+	lowOrderByte   uint8
+	highOrderByte  uint8
+
+	// sprites
 	rOAM ram
 	// primary OAM
 	pOAM [8]OamSprite
@@ -119,6 +126,27 @@ func (p *Ppu) clear(flag uint8) {
 	}
 }
 
+// start easy with a dummy imp
+func (p *Ppu) fetchNameTableEntry() {
+
+	p.nametableEntry = p.busInt.read8(0x2000 + uint16(p.scanLine/8)*32 + uint16(p.cycle/8))
+}
+
+func (p *Ppu) fetchAttributeTableEntry() {
+	p.attributeEntry = p.busInt.read8(0x23C0 + uint16(p.scanLine/32)*8 + uint16(p.cycle/32))
+}
+
+func (p *Ppu) fetchLowOrderByte() {
+	p.lowOrderByte = p.busInt.read8(0x1000 + uint16(p.nametableEntry)*16 + uint16(p.scanLine%8))
+}
+
+func (p *Ppu) fetchHighOrderByte() {
+	p.highOrderByte = p.busInt.read8(0x1000 + uint16(p.nametableEntry)*16 + uint16(p.scanLine%8) + 8)
+}
+
+func (p *Ppu) combineBS() {
+}
+
 func (p *Ppu) exec() {
 
 	if p.scanLine < 240 {
@@ -137,13 +165,52 @@ func (p *Ppu) exec() {
 		}
 	}
 
+	var c color.RGBA
+
+	// background
 	if p.scanLine > -1 && p.scanLine < 240 && p.cycle < 256 {
+		/*
+			switch p.cycle%8 {
+			case 1:
+				p.fetchNameTableEntry()
+			case 3:
+				p.fetchAttributeTableEntry()
+			case 5:
+				p.fetchLowOrderByte()
+			case 7:
+				p.fetchHighOrderByte()
+			case 0:
+				p.combineBS()
+			}
+		*/
+
 		x := uint8(p.cycle)
 		y := uint8(p.scanLine)
 
-		backgroundIndex := p.busInt.read8(0x3F00)
-		backgroundColour := p.palette.nesPalette[backgroundIndex]
-		c := backgroundColour
+		p.fetchNameTableEntry()
+		p.fetchAttributeTableEntry()
+		p.fetchLowOrderByte()
+		p.fetchHighOrderByte()
+
+		bit := uint8(8 - p.cycle%8 - 1)
+
+		b0 := (p.lowOrderByte >> bit) & 1
+		b1 := (p.highOrderByte >> bit) & 1
+		b := uint16(b0 | (b1 << 1))
+
+		palette := uint16(p.attributeEntry)
+		i := (x/16)%2 | ((y/16)%2)<<1
+		palette = (palette >> (2 * i)) & 3
+
+		// 4 background + 4 sprite palettes
+		index := p.busInt.read8(0x3F00 + (palette)*4 + b)
+		c = p.palette.nesPalette[index]
+		//p.drawPixel(x, y, c)
+	}
+
+	if p.scanLine > -1 && p.scanLine < 240 && p.cycle < 256 {
+		x := uint8(p.cycle)
+		y := uint8(p.scanLine)
 
 		for i := range p.pOAM {
 			s := &p.pOAM[i]
@@ -163,7 +230,9 @@ func (p *Ppu) exec() {
 
 				// 4 background + 4 sprite palettes
 				index := p.busInt.read8(0x3F00 + (palette+4)*4 + b)
-				c = p.palette.nesPalette[index]
+				if b != 0 {
+					c = p.palette.nesPalette[index]
+				}
 				break
 			}
 		}

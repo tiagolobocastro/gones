@@ -48,7 +48,7 @@ func (s *screen) runThread() {
 
 	cfg := pixelgl.WindowConfig{
 		Title:  "GoNes",
-		Bounds: pixel.R(0, 0, 1024, 768),
+		Bounds: pixel.R(0, 0, 510, 480),
 		VSync:  true,
 	}
 	window, err := pixelgl.NewWindow(cfg)

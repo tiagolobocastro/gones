@@ -57,7 +57,7 @@ func (m *cpuMapper) read8(addr uint16) uint8 {
 
 	case addr < 0x4018:
 		// read from APU and I-O
-		panic("address range not implemented!")
+		//		panic("address range not implemented!")
 	case addr < 0x4020:
 		// APU
 		panic("address range not implemented!")
@@ -128,7 +128,7 @@ func (m *ppuMapper) read8(addr uint16) uint8 {
 	switch {
 	// PPU VRAM or controlled via the Cartridge Mapper
 	case addr < 0x2000:
-		return m.nes.cart.mapper.read8(addr % 2048)
+		return m.nes.cart.mapper.read8(addr)
 	case addr < 0x3000:
 		return m.nes.vRam.read8(addr % 2048)
 	case addr < 0x3F00:
