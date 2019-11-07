@@ -165,6 +165,10 @@ func (c *Cpu) exec() int {
 	if c.curr.ins.opLength == 0 {
 		c.Logf("Read 0x%02x - %s - which is an invalid instruction!\n", opCode, c.curr.ins.opName)
 		c.rg.spc.pc.val += uint16(c.curr.ins.opLength)
+
+		// testing
+		panic("invalid instruction")
+
 		return int(c.curr.ins.opCycles)
 	}
 
@@ -194,6 +198,7 @@ func (c *Cpu) fetch() uint32 {
 }
 
 func (c *Cpu) brk() {
+
 	if c.disableBreak {
 		return
 	}
@@ -510,7 +515,7 @@ func (c *Cpu) _cmp(op1 uint8) {
 	op2 := c.read8(c.getOperandAddr(c.curr.ins))
 	r := int8(op1 - op2)
 
-	if r >= 0 {
+	if op1 >= op2 {
 		c.rg.spc.ps.set(bC, bC)
 	} else {
 		c.rg.spc.ps.set(bC, 0)

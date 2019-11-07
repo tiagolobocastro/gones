@@ -93,12 +93,12 @@ func (p *Ppu) showSpritesLeft() uint8 {
 	return (p.regs[PPUMASK].val & 4) >> 2
 }
 
-func (p *Ppu) showBackground() uint8 {
-	return (p.regs[PPUMASK].val & 8) >> 3
+func (p *Ppu) showBackground() bool {
+	return ((p.regs[PPUMASK].val & 8) >> 3) == 1
 }
 
-func (p *Ppu) showSprites() uint8 {
-	return (p.regs[PPUMASK].val & 16) >> 4
+func (p *Ppu) showSprites() bool {
+	return ((p.regs[PPUMASK].val & 16) >> 4) == 1
 }
 
 // 0 R G B
