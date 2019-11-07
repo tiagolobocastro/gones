@@ -82,6 +82,12 @@ func (c *Cpu) init(busInt busExtInt, verbose bool) {
 
 	c.busExtInt = busInt
 
+	if !c.verbose {
+		// set log to stdout just in case we change it during debugging
+		log.SetOutput(os.Stdout)
+		return
+	}
+
 	f, err := os.OpenFile("log.log", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)

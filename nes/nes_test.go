@@ -36,7 +36,7 @@ func testCpuTest(nes *nes, t *testing.T, cpuTest cpuTest) {
 	}
 	nes.cpu.rg.spc.ps.set(bZ|bN, int8(nes.cpu.rg.gp.ac.read()))
 
-	nes.Run()
+	nes.Test()
 
 	if strings.TrimSuffix(nes.cpu.rg.String(), "\n") != cpuTest.result {
 		t.Fatalf("[%s][%s] test failed!\nGot:\t\t%s\nExpected:\t%s", t.Name(), cpuTest.name, nes.cpu.rg.String(), cpuTest.result)
@@ -206,8 +206,7 @@ func Test_LA(t *testing.T) {
 		{name: "cmpIMM", code: "0600: a9 03 c9 05 00", result: "pc: 0x0605, sp: 0xff, ps: 0xb4 (N:1 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), ac: 0x03, x: 0x00, y: 0x00"},
 		{name: "cmpIMM2", code: "0600: a9 03 c9 03 00", result: "pc: 0x0605, sp: 0xff, ps: 0x37 (N:0 V:0 E:1 B:1 D:0 I:1 Z:1 C:1), ac: 0x03, x: 0x00, y: 0x00"},
 		{name: "cmpIMM3", code: "0600: a9 03 c9 01 00", result: "pc: 0x0605, sp: 0xff, ps: 0x35 (N:0 V:0 E:1 B:1 D:0 I:1 Z:0 C:1), ac: 0x03, x: 0x00, y: 0x00"},
-		// below actually revealed a bug in easy6502 online as it sets C!
-		{name: "cmpIMM4", code: "0600: a9 85 c9 01 00", result: "pc: 0x0605, sp: 0xff, ps: 0xb4 (N:1 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), ac: 0x85, x: 0x00, y: 0x00"},
+		{name: "cmpIMM4", code: "0600: a9 85 c9 01 00", result: "pc: 0x0605, sp: 0xff, ps: 0xb5 (N:1 V:0 E:1 B:1 D:0 I:1 Z:0 C:1), ac: 0x85, x: 0x00, y: 0x00"},
 	}
 
 	for _, test := range tests {

@@ -76,6 +76,24 @@ func (n *nes) Run2() {
 	time.Sleep(time.Second * 100)
 }
 
+func (n *nes) Test() {
+	for {
+		ticks := 1
+		if !n.dma.active() {
+			// cpu stalled whilst dma is active
+			ticks = n.cpu.tick()
+		}
+
+		if ticks == 0 {
+			return
+		}
+
+		// 3 ppu ticks per 1 cpu
+		n.ppu.ticks(3 * ticks)
+		n.dma.ticks(ticks)
+	}
+}
+
 func (n *nes) Run() {
 	n.screen.run(true)
 
