@@ -16,6 +16,8 @@ func (n *nes) init(cartPath string) {
 
 	n.ram.init(0x800)
 	n.vRam.init(0x800)
+
+	n.ctrl.init()
 	n.screen.init(n)
 
 	n.cpu.init(n.bus.getBusInt(MapCPUId), n.verbose)
@@ -73,7 +75,9 @@ func (n *nes) Step(seconds float64) {
 
 func (n *nes) Run2() {
 	n.screen.run(false)
-	time.Sleep(time.Second * 100)
+	for {
+		time.Sleep(time.Second * 1)
+	}
 }
 
 func (n *nes) Test() {

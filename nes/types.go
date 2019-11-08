@@ -79,6 +79,7 @@ type nes struct {
 	ppu  Ppu
 	vRam ram
 	dma  dma
+	ctrl controllers
 
 	screen screen
 

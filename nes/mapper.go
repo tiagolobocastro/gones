@@ -23,10 +23,10 @@ func (m *Mapper) read8(addr uint16) uint8 {
 		return m.cart.ram.read8(addr)
 	case addr < 0xC000:
 		return m.cart.prg.read8(uint16(int(addr) % m.cart.prg.size()))
-	case addr <= 0xFFFF:
+	//case addr <= 0xFFFF:
+	default:
 		return m.cart.prg.read8(uint16(int(addr) % m.cart.prg.size()))
 	}
-	return 0
 }
 func (m *Mapper) write8(addr uint16, val uint) {
 	panic("write not implemented!")
@@ -55,14 +55,18 @@ func (m *cpuMapper) read8(addr uint16) uint8 {
 	case addr < 0x4000:
 		return m.nes.ppu.read8(addr)
 
-	case addr < 0x4018:
+	case addr < 0x4016:
 		// read from APU and I-O
 		//		panic("address range not implemented!")
+	case addr < 0x4018:
+		// Controller
+		return m.nes.ctrl.read8(addr)
 	case addr < 0x4020:
 		// APU
 		panic("address range not implemented!")
 
-	case addr <= 0xFFFF:
+	//case addr <= 0xFFFF:
+	default:
 		return m.nes.cart.mapper.read8(addr)
 	}
 	return 0
@@ -79,14 +83,18 @@ func (m *cpuMapper) write8(addr uint16, val uint8) {
 	case addr == 0x4014:
 		m.nes.dma.write8(addr, val)
 
-	case addr < 0x4018:
+	case addr < 0x4016:
 		// APU and I-O
 		// panic("address range not implemented!")
-
+	case addr < 0x4018:
+		// Controller
+		m.nes.ctrl.write8(addr, val)
 	case addr < 0x4020:
 		// APU
 		panic("address range not implemented!")
-	case addr <= 0xFFFF:
+
+	//case addr <= 0xFFFF:
+	default:
 		panic("cannot write to cart!")
 	}
 }
