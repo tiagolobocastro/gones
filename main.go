@@ -8,8 +8,8 @@ func main() {
 	//nes := gones.NewNES(false, "C:\\Users\\Tiago\\workspace\\nes-test-roms\\sprite_movement\\spritemovement.nes")
 	//nes := gones.NewNES(false, "C:\\Users\\Tiago\\workspace\\nes-test-roms\\background2\\background.nes")
 	//nes := gones.NewNES(false, "C:\\Users\\Tiago\\workspace\\nes-test-roms\\full_palette\\flowing_palette.nes")
-	//nes := gones.NewNES(false, "C:\\Users\\Tiago\\Downloads\\Donkey Kong (World) (Rev A).nes")
+	nes := gones.NewNES(false, "C:\\Users\\Tiago\\Downloads\\Donkey Kong (World) (Rev A).nes")
 	// nes := gones.NewNES(false, "C:\\Users\\Tiago\\workspace\\nes-test-roms\\controller\\controller.nes")
-	nes := gones.NewNES(false, "C:\\Users\\Tiago\\Downloads\\Super Mario Bros. (World).nes")
+	// nes := gones.NewNES(false, "C:\\Users\\Tiago\\Downloads\\Super Mario Bros. (World).nes")
 	nes.Run2()
 }

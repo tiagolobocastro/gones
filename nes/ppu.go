@@ -18,9 +18,6 @@ type OamSprite struct {
 	// data
 	msbIndex uint8
 	lsbIndex uint8
-
-	// clr
-	set bool
 }
 
 type Ppu struct {
@@ -58,6 +55,13 @@ type Ppu struct {
 	// next scanline (the sprite evaluation phase). The OAM data for each sprite found to be within range is copied into
 	// the secondary OAM, which is then used to initialize eight internal sprite output units.
 	sOAM [8]OamSprite
+
+	// move this into a struct maybe
+	bgIndex    uint8
+	bgPalette  uint8
+	fgIndex    uint8
+	fgPalette  uint8
+	fgPriority bool
 
 	palette ppuPalette
 
@@ -164,53 +168,32 @@ func (p *Ppu) exec() {
 		}
 	}
 
+	// setup values required for the draw decision
 	x := uint8(p.cycle)
 	y := uint8(p.scanLine)
-	var c color.RGBA
+	p.bgIndex = 0
+	p.bgPalette = 0
+	p.fgIndex = 0
+	p.fgPalette = 0
+	p.fgPriority = false
 
 	// background
-	if p.scanLine > -1 && p.scanLine < 240 && p.cycle < 256 {
+	if p.scanLine > -1 && p.scanLine < 240 && p.cycle < 256 && p.showBackground() {
 
-		if p.showBackground() {
+		p.fetchNameTableEntry()
+		p.fetchAttributeTableEntry()
+		p.fetchLowOrderByte()
+		p.fetchHighOrderByte()
 
-			/*
-				switch p.cycle%8 {
-				case 1:
-					p.fetchNameTableEntry()
-				case 3:
-					p.fetchAttributeTableEntry()
-				case 5:
-					p.fetchLowOrderByte()
-				case 7:
-					p.fetchHighOrderByte()
-				case 0:
-					p.combineBS()
-				}
-			*/
+		bit := uint8(8 - p.cycle%8 - 1)
 
-			p.fetchNameTableEntry()
-			p.fetchAttributeTableEntry()
-			p.fetchLowOrderByte()
-			p.fetchHighOrderByte()
+		b0 := (p.lowOrderByte >> bit) & 1
+		b1 := (p.highOrderByte >> bit) & 1
+		p.bgIndex = b0 | (b1 << 1)
 
-			bit := uint8(8 - p.cycle%8 - 1)
-
-			b0 := (p.lowOrderByte >> bit) & 1
-			b1 := (p.highOrderByte >> bit) & 1
-			b := uint16(b0 | (b1 << 1))
-
-			palette := uint16(p.attributeEntry)
-			i := (x/16)%2 | ((y/16)%2)<<1
-			palette = (palette >> (2 * i)) & 3
-
-			// 4 background + 4 sprite palettes
-			index := p.busInt.read8(0x3F00 + (palette)*4 + b)
-			c = p.palette.nesPalette[index]
-		} else {
-			backgroundIndex := p.busInt.read8(0x3F00)
-			backgroundColour := p.palette.nesPalette[backgroundIndex]
-			c = backgroundColour
-		}
+		palette := p.attributeEntry
+		i := (x/16)%2 | ((y/16)%2)<<1
+		p.bgPalette = (palette >> (2 * i)) & 3
 	}
 
 	if p.scanLine > -1 && p.scanLine < 240 && p.cycle < 256 && p.showSprites() {
@@ -226,30 +209,40 @@ func (p *Ppu) exec() {
 
 				b0 := (s.lsbIndex >> bit) & 1
 				b1 := (s.msbIndex >> bit) & 1
-				b := uint16(b0 | (b1 << 1))
+				p.fgIndex = b0 | (b1 << 1)
+				p.fgPriority = (s.attributes>>5)&1 == 0
+				p.fgPalette = s.attributes & 0x3
 
-				palette := uint16(s.attributes & 0x3)
+				// non transparent pixel found so "accept" this sprite
+				if p.fgIndex != 0 {
 
-				// 4 background + 4 sprite palettes
-				index := p.busInt.read8(0x3F00 + (palette+4)*4 + b)
-				if b != 0 {
-
+					// todo: not quite right yet
 					if i == 0 {
 						p.regs[PPUSTATUS].set(statusSprite0Hit)
 					}
 
-					// sprite priorities
-					if (s.attributes>>5)&1 == 0 {
-						c = p.palette.nesPalette[index]
-					}
+					break
 				}
-				break
 			}
 		}
 	}
 
 	if p.scanLine > -1 && p.scanLine < 240 && p.cycle < 256 {
-		p.drawPixel(x, y, c)
+
+		// who gets drawn based on transparency (index==0) and priority
+		if p.bgIndex == 0 && p.fgIndex == 0 {
+			p.drawPixel(x, y, p.palette.nesPalette[p.busInt.read8(0x3F00)])
+		} else if p.bgIndex > 0 && p.fgIndex == 0 {
+			p.drawPixel(x, y, p.palette.nesPalette[p.busInt.read8(0x3F00+uint16(p.bgPalette*4+p.bgIndex))])
+		} else if p.bgIndex == 0 && p.fgIndex > 0 {
+			p.drawPixel(x, y, p.palette.nesPalette[p.busInt.read8(0x3F00+uint16((p.fgPalette+4)*4+p.fgIndex))])
+		} else if p.bgIndex > 0 && p.fgIndex > 0 {
+			if p.fgPriority {
+				p.drawPixel(x, y, p.palette.nesPalette[p.busInt.read8(0x3F00+uint16((p.fgPalette+4)*4+p.fgIndex))])
+			} else {
+				p.drawPixel(x, y, p.palette.nesPalette[p.busInt.read8(0x3F00+uint16(p.bgPalette*4+p.bgIndex))])
+			}
+		}
 	}
 
 	p.cycle += 1
@@ -281,10 +274,6 @@ func (p *Ppu) loadSprites() {
 	_, spriteSizeY := p.getSpriteSize()
 	patternAddr := p.getSpritePattern()
 	for i := range p.sOAM {
-
-		if !p.sOAM[i].set {
-			continue
-		}
 
 		p.pOAM[i] = p.sOAM[i]
 		s := &p.pOAM[i]
@@ -342,7 +331,6 @@ func (p *Ppu) evalSprites() {
 			p.sOAM[spriteCount].tIndex = p.rOAM.read8(i*4 + 1)
 			p.sOAM[spriteCount].attributes = p.rOAM.read8(i*4 + 2)
 			p.sOAM[spriteCount].xPos = p.rOAM.read8(i*4 + 3)
-			p.sOAM[spriteCount].set = true
 
 			spriteCount += 1
 			if spriteCount >= 8 {
@@ -363,7 +351,6 @@ func (p *Ppu) clearPrimOAM() {
 			xPos:       0xFF,
 			lsbIndex:   0x00,
 			msbIndex:   0x00,
-			set:        false,
 		}
 	}
 }
@@ -378,7 +365,6 @@ func (p *Ppu) clearSecOAM() {
 			xPos:       0xFF,
 			lsbIndex:   0x00,
 			msbIndex:   0x00,
-			set:        false,
 		}
 	}
 }
