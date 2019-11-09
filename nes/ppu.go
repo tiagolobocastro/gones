@@ -327,7 +327,7 @@ func (p *Ppu) evalSprites() {
 		// if the scanLine intersects the sprite, it's a "hit"
 		// copy sprite to the secondary OAM
 		if yPosEnd > yPos && evalScan >= int(yPos) && evalScan <= int(yPosEnd) {
-			p.sOAM[spriteCount].yPos = p.rOAM.read8(i*4 + 0)
+			p.sOAM[spriteCount].yPos = yPos + 1
 			p.sOAM[spriteCount].tIndex = p.rOAM.read8(i*4 + 1)
 			p.sOAM[spriteCount].attributes = p.rOAM.read8(i*4 + 2)
 			p.sOAM[spriteCount].xPos = p.rOAM.read8(i*4 + 3)
