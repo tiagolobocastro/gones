@@ -233,7 +233,15 @@ func (p *Ppu) exec() {
 				// 4 background + 4 sprite palettes
 				index := p.busInt.read8(0x3F00 + (palette+4)*4 + b)
 				if b != 0 {
-					c = p.palette.nesPalette[index]
+
+					if i == 0 {
+						p.regs[PPUSTATUS].set(statusSprite0Hit)
+					}
+
+					// sprite priorities
+					if (s.attributes>>5)&1 == 0 {
+						c = p.palette.nesPalette[index]
+					}
 				}
 				break
 			}
@@ -409,6 +417,9 @@ func (p *Ppu) read8(addr uint16) uint8 {
 	return 0
 }
 func (p *Ppu) write8(addr uint16, val uint8) {
+
+	p.setLastRegWrite(val)
+
 	if addr < 0x4000 {
 		// incomplete decoding means 0x2000-0x2007 are mirrored every 8 bytes
 		addr = 0x2000 + addr%8

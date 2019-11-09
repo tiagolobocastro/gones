@@ -138,6 +138,11 @@ func (p *Ppu) setSTATUSbits(val uint8) {
 	p.regs[PPUSTATUS].set(val)
 }
 
+func (p *Ppu) setLastRegWrite(val uint8) {
+	// Least significant bits previously written into a PPU register
+	p.regs[PPUSTATUS].val = (p.regs[PPUSTATUS].val & 0xE0) | (val & 0x1F)
+}
+
 func (p *Ppu) readPPUStatus() uint8 {
 	val := p.regs[PPUSTATUS].val
 

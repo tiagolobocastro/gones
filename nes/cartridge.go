@@ -31,7 +31,7 @@ func (c *Cartridge) defaultInit() error {
 	c.chr.init(16384, true)
 	c.ram.init(16384)
 
-	c.mapper = &Mapper{cart: c, mType: mapperNROM}
+	c.mapper = c.newCartMapper(mapperNROM)
 
 	return nil
 }
@@ -105,8 +105,17 @@ func (c *Cartridge) init(cartPath string) error {
 
 	c.ram.init(int(header.Flags8))
 
-	c.mapper = &Mapper{cart: c, mType: mapper}
+	c.mapper = c.newCartMapper(mapper)
 	return nil
+}
+
+func (c *Cartridge) newCartMapper(mapper byte) Mapper {
+	switch mapper {
+	case mapperNROM:
+		return &MapperNROM{cart: c}
+	default:
+		panic(fmt.Sprintf("mapper %v not supported!", mapper))
+	}
 }
 
 // BusInt
@@ -119,7 +128,7 @@ type Cartridge struct {
 	prgSize byte
 	chrSize byte
 
-	mapper *Mapper
+	mapper Mapper
 
 	cart string
 }

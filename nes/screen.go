@@ -103,21 +103,23 @@ func (s *screen) runner() {
 	}
 }
 
+var buttons = [8]struct {
+	id  uint8
+	key pixelgl.Button
+}{
+	{bitA, pixelgl.KeyD},
+	{bitB, pixelgl.KeyF},
+	{bitSelect, pixelgl.KeyS},
+	{bitStart, pixelgl.KeyEnter},
+	{bitUp, pixelgl.KeyUp},
+	{bitDown, pixelgl.KeyDown},
+	{bitLeft, pixelgl.KeyLeft},
+	{bitRight, pixelgl.KeyRight},
+}
+
 func (s *screen) updateControllers() {
 
-	for _, button := range [8]struct {
-		id  uint8
-		key pixelgl.Button
-	}{
-		{bitA, pixelgl.KeyS},
-		{bitB, pixelgl.KeyD},
-		{bitSelect, pixelgl.KeyC},
-		{bitStart, pixelgl.KeySpace},
-		{bitUp, pixelgl.KeyUp},
-		{bitDown, pixelgl.KeyDown},
-		{bitLeft, pixelgl.KeyLeft},
-		{bitRight, pixelgl.KeyRight},
-	} {
+	for _, button := range buttons {
 		pressed := s.window.Pressed(button.key)
 		s.nes.ctrl.poke(0, button.id, pressed)
 	}

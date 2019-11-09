@@ -4,31 +4,28 @@ const (
 	mapperNROM = iota
 )
 
-// atm the mirror prg is hardcoded which is wrong, that should be programmatic...
+type Mapper interface {
+	busInt
+}
 
-type Mapper struct {
-	bus
-	cart  *Cartridge
-	mType byte
+type MapperNROM struct {
+	cart *Cartridge
 }
 
 //CPU $6000-$7FFF: Family Basic only: PRG RAM, mirrored as necessary to fill entire 8 KiB window, write protectable with an external switch
 //CPU $8000-$BFFF: First 16 KB of ROM.
 //CPU $C000-$FFFF: Last 16 KB of ROM (NROM-256) or mirror of $8000-$BFFF (NROM-128).
-func (m *Mapper) read8(addr uint16) uint8 {
+func (m *MapperNROM) read8(addr uint16) uint8 {
 	switch {
 	case addr < 0x2000:
 		return m.cart.chr.read8(addr)
 	case addr < 0x8000:
 		return m.cart.ram.read8(addr)
-	case addr < 0xC000:
-		return m.cart.prg.read8(uint16(int(addr) % m.cart.prg.size()))
-	//case addr <= 0xFFFF:
 	default:
 		return m.cart.prg.read8(uint16(int(addr) % m.cart.prg.size()))
 	}
 }
-func (m *Mapper) write8(addr uint16, val uint) {
+func (m *MapperNROM) write8(addr uint16, val uint8) {
 	panic("write not implemented!")
 }
 
@@ -57,7 +54,7 @@ func (m *cpuMapper) read8(addr uint16) uint8 {
 
 	case addr < 0x4016:
 		// read from APU and I-O
-		//		panic("address range not implemented!")
+		panic("address range not implemented!")
 	case addr < 0x4018:
 		// Controller
 		return m.nes.ctrl.read8(addr)
@@ -65,7 +62,6 @@ func (m *cpuMapper) read8(addr uint16) uint8 {
 		// APU
 		panic("address range not implemented!")
 
-	//case addr <= 0xFFFF:
 	default:
 		return m.nes.cart.mapper.read8(addr)
 	}
@@ -93,7 +89,6 @@ func (m *cpuMapper) write8(addr uint16, val uint8) {
 		// APU
 		panic("address range not implemented!")
 
-	//case addr <= 0xFFFF:
 	default:
 		panic("cannot write to cart!")
 	}
