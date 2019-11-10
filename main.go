@@ -11,5 +11,6 @@ func main() {
 	//nes := gones.NewNES(false, "C:\\Users\\Tiago\\Downloads\\Donkey Kong (World) (Rev A).nes")
 	// nes := gones.NewNES(false, "C:\\Users\\Tiago\\workspace\\nes-test-roms\\controller\\controller.nes")
 	nes := gones.NewNES(false, "C:\\Users\\Tiago\\Downloads\\Super Mario Bros. (World).nes")
+	//nes := gones.NewNES(false, "C:\\Users\\Tiago\\workspace\\nes-test-roms\\scrolling\\scrolling1.nes")
 	nes.Run2()
 }

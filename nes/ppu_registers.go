@@ -160,7 +160,8 @@ func (p *Ppu) writePPUScroll() {
 		// x:              CBA = d: .....CBA
 		// w:                  = 1
 		p.tRAM.val = (p.tRAM.val & 0xFFE0) | uint16(val>>8)
-		p.xFine.write(val & 0x7)
+		//p.xFine.write(val & 0x7)
+		p.xFine.write(val)
 		p.wToggle.val = 1
 	} else {
 		// t: CBA..HG FED..... = d: HGFEDCBA

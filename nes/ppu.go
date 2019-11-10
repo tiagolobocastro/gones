@@ -130,13 +130,53 @@ func (p *Ppu) clear(flag uint8) {
 	}
 }
 
+func (p *Ppu) getBaseN(index uint8) uint16 {
+	nta := [2]uint16{}
+	if (p.regs[PPUCTRL].val)&0x3 == 0 {
+		nta = [2]uint16{0x2000, 0x2400}
+	} else {
+		nta = [2]uint16{0x2400, 0x2000}
+	}
+
+	return nta[index]
+}
+
+func (p *Ppu) getBaseNX(index uint8) uint16 {
+	nta := [2]uint16{}
+	if (p.regs[PPUCTRL].val)&0x3 == 0 {
+		nta = [2]uint16{0x23C0, 0x27C0}
+	} else {
+		nta = [2]uint16{0x27C0, 0x23C0}
+	}
+	return nta[index]
+}
+
 // start easy with a dummy imp
 func (p *Ppu) fetchNameTableEntry() {
-	p.nametableEntry = p.busInt.read8(0x2000 + uint16(p.scanLine/8)*32 + uint16(p.cycle/8))
+	x := (p.cycle + int(p.xFine.val)) % 250
+
+	ne := uint16(0)
+
+	if x < int(p.xFine.val) {
+		ne = p.getBaseN(1)
+	} else {
+		ne = p.getBaseN(0)
+	}
+
+	p.nametableEntry = p.busInt.read8(ne + uint16(p.scanLine/8)*32 + uint16(x/8))
 }
 
 func (p *Ppu) fetchAttributeTableEntry() {
-	p.attributeEntry = p.busInt.read8(0x23C0 + uint16(p.scanLine/32)*8 + uint16(p.cycle/32))
+	x := (p.cycle + int(p.xFine.val)) % 250
+	ne := uint16(0)
+
+	if x < int(p.xFine.val) {
+		ne = p.getBaseNX(1)
+	} else {
+		ne = p.getBaseNX(0)
+	}
+
+	p.attributeEntry = p.busInt.read8(ne + uint16(p.scanLine/32)*8 + uint16(x/32))
 }
 
 func (p *Ppu) fetchLowOrderByte() {
@@ -179,20 +219,36 @@ func (p *Ppu) exec() {
 
 	// background
 	if p.scanLine > -1 && p.scanLine < 240 && p.cycle < 256 && p.showBackground() {
-
+		/*
+			switch p.cycle%8 {
+			case 1:
+				p.fetchNameTableEntry()
+			case 3:
+				p.fetchAttributeTableEntry()
+			case 5:
+				p.fetchLowOrderByte()
+			case 7:
+				p.fetchHighOrderByte()
+			case 0:
+				p.combineBS()
+			}
+		*/
 		p.fetchNameTableEntry()
 		p.fetchAttributeTableEntry()
 		p.fetchLowOrderByte()
 		p.fetchHighOrderByte()
 
-		bit := uint8(8 - p.cycle%8 - 1)
+		xx := uint8((p.cycle + int(p.xFine.val)) % 250)
+
+		bit := uint8(8 - xx%8 - 1)
 
 		b0 := (p.lowOrderByte >> bit) & 1
 		b1 := (p.highOrderByte >> bit) & 1
 		p.bgIndex = b0 | (b1 << 1)
 
 		palette := p.attributeEntry
-		i := (x/16)%2 | ((y/16)%2)<<1
+
+		i := (xx/16)%2 | ((y/16)%2)<<1
 		p.bgPalette = (palette >> (2 * i)) & 3
 	}
 
