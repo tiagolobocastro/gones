@@ -13,7 +13,7 @@ type ppuPalette struct {
 	nesPalette [64]color.RGBA
 
 	// 4 for the background and 4 for the sprites
-	colours [8]color.RGBA
+	indexes [32]uint8
 }
 
 func (p *ppuPalette) init() {
@@ -80,40 +80,26 @@ func (p *ppuPalette) setPalette(source string) error {
 	return nil
 }
 
-// need to map these properly to the nes colours!
-
+// https://wiki.nesdev.com/w/index.php/PPU_palettes
+// Addresses $3F10/$3F14/$3F18/$3F1C are mirrors of $3F00/$3F04/$3F08/$3F0C
 func (p *ppuPalette) read8(addr uint16) uint8 {
-	colourIndex := addr / 4
-	switch addr % 4 {
-	case 0:
-		return p.colours[colourIndex].R
-	case 1:
-		return p.colours[colourIndex].G
-	case 2:
-		return p.colours[colourIndex].B
-	case 3:
-		return p.colours[colourIndex].A
+	if addr >= 16 && addr%4 == 0 {
+		addr -= 16
 	}
-	return 0
+	return p.indexes[addr]
 }
 func (p *ppuPalette) write8(addr uint16, val uint8) {
-	colourIndex := addr / 4
-	switch addr % 4 {
-	case 0:
-		p.colours[colourIndex].R = val
-	case 1:
-		p.colours[colourIndex].G = val
-	case 2:
-		p.colours[colourIndex].B = val
-	case 3:
-		p.colours[colourIndex].A = val
+	if addr >= 16 && addr%4 == 0 {
+		addr -= 16
 	}
+	p.indexes[addr] = val
 }
 
 // little endian
 func (p *ppuPalette) read16(addr uint16) uint16 {
+	panic("oops")
 	return 0
 }
 func (p *ppuPalette) write16(addr uint16, val uint16) {
-
+	panic("oops")
 }

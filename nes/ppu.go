@@ -15,6 +15,9 @@ type OamSprite struct {
 	// X position of left side of sprite
 	xPos uint8
 
+	// sprite id
+	id uint8
+
 	// data
 	msbIndex uint8
 	lsbIndex uint8
@@ -83,7 +86,7 @@ func (p *Ppu) init(busInt busInt, verbose bool, interrupts iInterrupt, frameBuff
 	p.frames = 0
 	p.frameBuffer = frameBuffer
 
-	p.buffered = false
+	p.buffered = true
 	if p.buffered {
 		p.backBuffer = make([]color.RGBA, 256*240)
 	}
@@ -130,7 +133,7 @@ func (p *Ppu) clear(flag uint8) {
 	}
 }
 
-func (p *Ppu) getBaseN(index uint8) uint16 {
+func (p *Ppu) getBaseN(first bool) uint16 {
 	nta := [2]uint16{}
 	if (p.regs[PPUCTRL].val)&0x3 == 0 {
 		nta = [2]uint16{0x2000, 0x2400}
@@ -138,44 +141,42 @@ func (p *Ppu) getBaseN(index uint8) uint16 {
 		nta = [2]uint16{0x2400, 0x2000}
 	}
 
-	return nta[index]
+	if first {
+		return nta[1]
+	} else {
+		return nta[0]
+	}
 }
 
-func (p *Ppu) getBaseNX(index uint8) uint16 {
+func (p *Ppu) getBaseNX(first bool) uint16 {
 	nta := [2]uint16{}
 	if (p.regs[PPUCTRL].val)&0x3 == 0 {
 		nta = [2]uint16{0x23C0, 0x27C0}
 	} else {
 		nta = [2]uint16{0x27C0, 0x23C0}
 	}
-	return nta[index]
+
+	if first {
+		return nta[1]
+	} else {
+		return nta[0]
+	}
 }
 
 // start easy with a dummy imp
 func (p *Ppu) fetchNameTableEntry() {
-	x := (p.cycle + int(p.xFine.val)) % 250
+	x := (p.cycle + int(p.xFine.val)) % 256
+	xx := (p.cycle + int(p.xFine.val)) > 255
 
-	ne := uint16(0)
-
-	if x < int(p.xFine.val) {
-		ne = p.getBaseN(1)
-	} else {
-		ne = p.getBaseN(0)
-	}
-
+	ne := p.getBaseN(xx)
 	p.nametableEntry = p.busInt.read8(ne + uint16(p.scanLine/8)*32 + uint16(x/8))
 }
 
 func (p *Ppu) fetchAttributeTableEntry() {
-	x := (p.cycle + int(p.xFine.val)) % 250
-	ne := uint16(0)
+	x := (p.cycle + int(p.xFine.val)) % 256
+	xx := (p.cycle + int(p.xFine.val)) > 255
 
-	if x < int(p.xFine.val) {
-		ne = p.getBaseNX(1)
-	} else {
-		ne = p.getBaseNX(0)
-	}
-
+	ne := p.getBaseNX(xx)
 	p.attributeEntry = p.busInt.read8(ne + uint16(p.scanLine/32)*8 + uint16(x/32))
 }
 
@@ -238,7 +239,7 @@ func (p *Ppu) exec() {
 		p.fetchLowOrderByte()
 		p.fetchHighOrderByte()
 
-		xx := uint8((p.cycle + int(p.xFine.val)) % 250)
+		xx := uint8((p.cycle + int(p.xFine.val)) % 256)
 
 		bit := uint8(8 - xx%8 - 1)
 
@@ -254,6 +255,11 @@ func (p *Ppu) exec() {
 
 	if p.scanLine > -1 && p.scanLine < 240 && p.cycle < 256 && p.showSprites() {
 		for i := range p.pOAM {
+
+			if p.pOAM[i].id == 64 {
+				continue
+			}
+
 			s := &p.pOAM[i]
 
 			xi := uint(x) - uint(s.xPos)
@@ -273,7 +279,7 @@ func (p *Ppu) exec() {
 				if p.fgIndex != 0 {
 
 					// todo: not quite right yet
-					if i == 0 {
+					if s.id == 0 && /*p.bgIndex>0 &&*/ x != 255 {
 						p.regs[PPUSTATUS].set(statusSprite0Hit)
 					}
 
@@ -378,15 +384,17 @@ func (p *Ppu) evalSprites() {
 
 		// 0 yPos, 1 index, 2 attr, 3 xPos => i*4
 		yPos := p.rOAM.read8(i * 4)
-		yPosEnd := yPos + yLen
+		yPosEnd := uint16(yPos) + uint16(yLen)
 
 		// if the scanLine intersects the sprite, it's a "hit"
 		// copy sprite to the secondary OAM
-		if yPosEnd > yPos && evalScan >= int(yPos) && evalScan <= int(yPosEnd) {
+		//if evalScan < 240 && evalScan >= int(yPos) && evalScan <= int(yPosEnd) {
+		if yPosEnd > uint16(yPos) && evalScan >= int(yPos) && evalScan <= int(yPosEnd) {
 			p.sOAM[spriteCount].yPos = yPos + 1
 			p.sOAM[spriteCount].tIndex = p.rOAM.read8(i*4 + 1)
 			p.sOAM[spriteCount].attributes = p.rOAM.read8(i*4 + 2)
 			p.sOAM[spriteCount].xPos = p.rOAM.read8(i*4 + 3)
+			p.sOAM[spriteCount].id = uint8(i)
 
 			spriteCount += 1
 			if spriteCount >= 8 {
@@ -405,6 +413,7 @@ func (p *Ppu) clearPrimOAM() {
 			tIndex:     0xFF,
 			attributes: 0xFF,
 			xPos:       0xFF,
+			id:         64,
 			lsbIndex:   0x00,
 			msbIndex:   0x00,
 		}
@@ -419,6 +428,7 @@ func (p *Ppu) clearSecOAM() {
 			tIndex:     0xFF,
 			attributes: 0xFF,
 			xPos:       0xFF,
+			id:         64,
 			lsbIndex:   0x00,
 			msbIndex:   0x00,
 		}
@@ -458,6 +468,7 @@ func (p *Ppu) read8(addr uint16) uint8 {
 
 	return 0
 }
+
 func (p *Ppu) write8(addr uint16, val uint8) {
 
 	p.setLastRegWrite(val)
