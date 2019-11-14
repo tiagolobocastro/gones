@@ -26,6 +26,7 @@ type Instruction struct {
 type Context struct {
 	ins *Instruction
 	opr uint32
+	pgX bool
 }
 
 const (
@@ -152,18 +153,21 @@ func (c *Cpu) nmi() {
 
 func (c *Cpu) tick() int {
 
-	ticks := c.exec()
-	c.clk += ticks
+	clk := c.clk
+	c.exec()
+	ticks := c.clk - clk
 	return ticks
 }
 
-func (c *Cpu) exec() int {
+func (c *Cpu) exec() {
 
 	switch c.interrupts {
 	case cpuIntNMI:
 		c.nmi()
+		c.clk += 7
 	}
 
+	c.curr.pgX = false
 	c.curr.opr = c.fetch()
 	opCode := c.curr.opr & 0xFF
 	c.curr.ins = &c.ins[opCode]
@@ -175,7 +179,7 @@ func (c *Cpu) exec() int {
 		// testing
 		panic("invalid instruction")
 
-		return int(c.curr.ins.opCycles)
+		return
 	}
 
 	if c.verbose {
@@ -191,10 +195,13 @@ func (c *Cpu) exec() int {
 
 	if c.curr.ins.opName == "BRK" {
 		// probably need to remove this...
-		return 0
+		return
 	}
 
-	return int(c.curr.ins.opCycles)
+	c.clk += int(c.curr.ins.opCycles)
+	if c.curr.pgX {
+		c.clk += int(c.curr.ins.opPageCycles)
+	}
 }
 
 func (c *Cpu) fetch() uint32 {
@@ -260,6 +267,10 @@ func (c *Cpu) getOperandString(ins *Instruction) string {
 	return str
 }
 
+func pageCrossed(a, b uint16) bool {
+	return a&0xFF00 != b&0xFF00
+}
+
 func (c *Cpu) getOperandAddr(ins *Instruction) uint16 {
 	op1 := uint16(c.curr.opr&0xFF00) >> 8
 	op12 := uint16((c.curr.opr & 0xFFFF00) >> 8)
@@ -275,13 +286,22 @@ func (c *Cpu) getOperandAddr(ins *Instruction) uint16 {
 	case ModeAbsolute:
 		return op12
 	case ModeIndexedAbsoluteX:
-		return op12 + uint16(c.rg.gp.ix.x.read())
+		x := uint16(c.rg.gp.ix.x.read())
+		addr := op12 + x
+		c.curr.pgX = pageCrossed(addr-x, addr)
+		return addr
 	case ModeIndexedAbsoluteY:
-		return op12 + uint16(c.rg.gp.ix.y.read())
+		y := uint16(c.rg.gp.ix.y.read())
+		addr := op12 + y
+		c.curr.pgX = pageCrossed(addr-y, addr)
+		return addr
 	case ModeIndexedIndirectX:
 		return c.read16(op1 + uint16(c.rg.gp.ix.x.read()))
 	case ModeIndirectIndexedY:
-		return c.read16(op1) + uint16(c.rg.gp.ix.y.read())
+		y := uint16(c.rg.gp.ix.y.read())
+		addr := c.read16(op1) + y
+		c.curr.pgX = pageCrossed(addr-y, addr)
+		return addr
 	case ModeIndirect:
 		// http://www.obelisk.me.uk/6502/reference.html#JMP:
 		// An original 6502 has does not correctly fetch the target address if the indirect vector falls on a page boundary
@@ -418,15 +438,27 @@ func (c *Cpu) cli() {
 	c.rg.spc.ps.set(bI, 0)
 }
 
+// branching requires more cycles
+func (c *Cpu) addBranchCycles(addr uint16) {
+	c.clk++
+	pc := c.rg.spc.pc.val + uint16(c.curr.ins.opLength)
+	if pageCrossed(pc, addr) {
+		c.clk++
+	}
+}
+
 func (c *Cpu) jmp() {
 	// take into account PC increment
 	// might be better to move operand get to exec
-	c.rg.spc.pc.write(c.getOperandAddr(c.curr.ins) - uint16(c.curr.ins.opLength))
+	addr := c.getOperandAddr(c.curr.ins) - uint16(c.curr.ins.opLength)
+	c.rg.spc.pc.write(addr)
 }
 
 func (c *Cpu) _branch(flag uint8, test uint8) {
 	if (c.rg.spc.ps.read() & flag) == test {
-		c.rg.spc.pc.write(c.getOperandAddr(c.curr.ins))
+		addr := c.getOperandAddr(c.curr.ins)
+		c.addBranchCycles(addr)
+		c.rg.spc.pc.write(addr)
 	}
 }
 

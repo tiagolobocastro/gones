@@ -85,7 +85,7 @@ func (p *Ppu) init(busInt busInt, verbose bool, interrupts iInterrupt, framebuff
 	p.interrupts = interrupts
 	p.clock = 0
 	p.cycle = 0
-	p.scanLine = 0
+	p.scanLine = -1
 	p.frames = 0
 	p.frameBuffer = framebuffer
 	p.buffered = true
@@ -212,7 +212,7 @@ func (p *Ppu) exec() {
 	p.fgPriority = false
 
 	// background
-	if p.scanLine > -1 && p.scanLine < 240 && p.cycle < 255 && p.showBackground() {
+	if p.scanLine > -1 && p.scanLine < 240 && p.cycle < 256 && p.showBackground() {
 
 		if p.scanLine > 0 && p.scanLine%32 == 0 {
 			p.nameTable = p.regs[PPUCTRL].val & 3
@@ -238,7 +238,6 @@ func (p *Ppu) exec() {
 
 	if p.scanLine > -1 && p.scanLine < 240 && p.cycle < 256 && p.showSprites() {
 		for i := range p.pOAM {
-
 			if p.pOAM[i].id == 64 {
 				continue
 			}
@@ -246,9 +245,8 @@ func (p *Ppu) exec() {
 			s := &p.pOAM[i]
 
 			xi := uint(x) - uint(s.xPos)
-			yi := uint(y) - uint(s.yPos)
 
-			if yi < 8 && xi < 8 {
+			if xi < 8 {
 
 				bit := 8 - xi - 1
 
@@ -336,7 +334,8 @@ func (p *Ppu) loadSprites() {
 		}
 
 		// calculate line inside sprite for the next scanLine
-		lSpY := (p.scanLine + 1 - int(s.yPos)) % int(spriteSizeY)
+		// edit: seems like sprites are already arranged like so, meaning we can use the current?
+		lSpY := (p.scanLine - int(s.yPos)) % int(spriteSizeY)
 
 		// vertical flip
 		if (s.attributes & 0x80) != 0 {
@@ -365,7 +364,7 @@ func reverseByte(b uint8) uint8 {
 
 func (p *Ppu) evalSprites() {
 	spriteCount := 0
-	evalScan := p.scanLine + 1
+	evalScan := p.scanLine
 	_, yLen := p.getSpriteSize()
 	for i := uint16(0); i < 64; i++ {
 
@@ -375,9 +374,8 @@ func (p *Ppu) evalSprites() {
 
 		// if the scanLine intersects the sprite, it's a "hit"
 		// copy sprite to the secondary OAM
-		//if evalScan < 240 && evalScan >= int(yPos) && evalScan <= int(yPosEnd) {
-		if yPosEnd > uint16(yPos) && evalScan >= int(yPos) && evalScan <= int(yPosEnd) {
-			p.sOAM[spriteCount].yPos = yPos + 1
+		if evalScan >= int(yPos) && evalScan < int(yPosEnd) {
+			p.sOAM[spriteCount].yPos = yPos
 			p.sOAM[spriteCount].tIndex = p.rOAM.read8(i*4 + 1)
 			p.sOAM[spriteCount].attributes = p.rOAM.read8(i*4 + 2)
 			p.sOAM[spriteCount].xPos = p.rOAM.read8(i*4 + 3)
