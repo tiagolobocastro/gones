@@ -5,7 +5,6 @@ import (
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/pixelgl"
 	"image/color"
-	_ "image/png" // ouch! needs to be here
 	"os"
 	"runtime"
 	"time"
@@ -71,87 +70,24 @@ func (s *screen) runThread() {
 }
 
 func (s *screen) runner() {
-	//lastLoopStamp := time.Now()
 
 	go func() {
-		tmr := time.Tick(time.Second / 60)
+		tmr := time.Tick(time.Second / 240)
 		for {
-
-			// 1 frame
-			s.nes.Step(1)
-			// wait until ftime
+			s.nes.Step((time.Second / 240).Seconds())
 			<-tmr
 		}
 	}()
 
-	//lastLoopFrames := 0
+	lastLoopFrames := 0
 	for !s.window.Closed() {
-		// not good at the moment because the window updates do not match the ppu steps, unless we make sure
-		// we always break out of the step after a vblank?
-		// perhaps would be better if we run the nes on a separate thread and use channels to control when the
-		// nes can execute?
-		/*
-			// draw only after the ppu is finished poking the pixels -> after vblank when we increment the frames
-			dt := time.Since(lastLoopStamp).Seconds()
-			lastLoopStamp = time.Now()
-
-			// not quite right... if we click the window, it cause issues -> leads us to execute
-			// in big "chunks" and therefore loosing frames
-			// also same in debug mode...
-			// 0.02 seems to be small enough to make this imperceptible and allowing it to "catch up"
-			// doesn't work for debug as the nes step is slower, increasing the dt
-			if dt < 0.02 {
-				s.nes.Step(dt)
-			}
-			if s.nes.ppu.frames > lastLoopFrames {
-					if (s.nes.ppu.frames - lastLoopFrames) > 1 {
-						fmt.Printf("Ups, skipped %v frames!\n", s.nes.ppu.frames - lastLoopFrames)
-					}
-
-					s.draw()
-					s.window.Update()
-					lastLoopFrames = s.nes.ppu.frames
-				}
-		*/
 
 		<-s.framebuffer.frameUpdated
-		s.updateFpsTitle()
 
-		s.draw()
-		s.window.Update()
-
-		s.updateControllers()
-	}
-}
-
-func (s *screen) runnerx() {
-	lastLoopStamp := time.Now()
-	lastLoopFrames := 0
-
-	for !s.window.Closed() {
-
-		dt := time.Since(lastLoopStamp).Seconds()
-		lastLoopStamp = time.Now()
-
-		// not quite right... if we click the window, it cause issues -> leads us to execute
-		// in big "chunks" and therefore loosing frames
-		// also same in debug mode...
-		// 0.02 seems to be small enough to make this imperceptible and allowing it to "catch up"
-		// doesn't work for debug as the nes step is slower, increasing the dt
-		if dt < 0.02 {
-			s.nes.Step(dt)
-		}
-
-		// not good at the moment because the window updates do not match the ppu steps, unless we make sure
-		// we always break out of the step after a vblank?
-		// perhaps would be better if we run the nes on a separate thread and use channels to control when the
-		// nes can execute?
-
-		// draw only after the ppu is finished poking the pixels -> after vblank when we increment the frames
-		// todo: use the interrupt interconnect to detect this
-		if s.nes.ppu.frames > lastLoopFrames {
-			if (s.nes.ppu.frames - lastLoopFrames) > 1 {
-				fmt.Printf("Ups, skipped %v frames!\n", s.nes.ppu.frames-lastLoopFrames)
+		frameDiff := s.nes.ppu.frames - lastLoopFrames
+		if frameDiff > 0 {
+			if frameDiff > 1 {
+				fmt.Printf("Ups, skipped %v frames!\n", frameDiff)
 			}
 
 			s.draw()
@@ -204,23 +140,8 @@ func (s *screen) freeRunner() {
 	}
 }
 
-func (s *screen) freeRunner_() {
-	lastLoopFrames := 0
-	for !s.window.Closed() {
-		// draw only after the ppu is finished poking the pixels -> after vblank when we increment the frames
-		// todo: use the interrupt interconnect to detect this
-		if s.nes.ppu.frames > lastLoopFrames {
-			s.draw()
-			s.window.Update()
-			lastLoopFrames = s.nes.ppu.frames
-		}
-
-		s.updateFpsTitle()
-	}
-}
-
 func (s *screen) draw() {
-	// seems to be required for reasons unknown
+	// seems to be required, for reasons unknown
 	s.updateSprite()
 
 	s.sprite.Draw(s.window, pixel.IM.Moved(s.window.Bounds().Center()).ScaledXY(s.window.Bounds().Center(), pixel.V(2, 2)))
@@ -229,24 +150,24 @@ func (s *screen) draw() {
 func (s *screen) updateSprite() {
 	if s.framebuffer.frameIndex == 1 {
 		// ppu is drawing new pixels on buffer1, which means the stable data is in buffer0
-		s.sprite = pixel.NewSprite(s.buffer0, pixel.R(0, 0, 256, 240))
+		s.sprite = pixel.NewSprite(s.buffer0, pixel.R(0, 0, screenXWidth, screenYWidth))
 	} else {
-		s.sprite = pixel.NewSprite(s.buffer1, pixel.R(0, 0, 256, 240))
+		s.sprite = pixel.NewSprite(s.buffer1, pixel.R(0, 0, screenXWidth, screenYWidth))
 	}
 }
 
 func (s *screen) setSprite() {
 
 	s.buffer0 = &pixel.PictureData{
-		Pix:    make([]color.RGBA, 256*240),
-		Stride: 256,
-		Rect:   pixel.R(0, 0, 256, 240),
+		Pix:    make([]color.RGBA, screenXWidth*screenYWidth),
+		Stride: screenXWidth,
+		Rect:   pixel.R(0, 0, screenXWidth, screenYWidth),
 	}
 
 	s.buffer1 = &pixel.PictureData{
-		Pix:    make([]color.RGBA, 256*240),
-		Stride: 256,
-		Rect:   pixel.R(0, 0, 256, 240),
+		Pix:    make([]color.RGBA, screenXWidth*screenYWidth),
+		Stride: screenXWidth,
+		Rect:   pixel.R(0, 0, screenXWidth, screenYWidth),
 	}
 
 	s.framebuffer = framebuffer{

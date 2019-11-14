@@ -88,7 +88,7 @@ func (p *Ppu) init(busInt busInt, verbose bool, interrupts iInterrupt, framebuff
 	p.scanLine = 0
 	p.frames = 0
 	p.frameBuffer = framebuffer
-	p.buffered = false
+	p.buffered = true
 
 	p.vRAM.init("v", 0)
 	p.tRAM.init("t", 0)
@@ -119,12 +119,6 @@ func (p *Ppu) raise(flag uint8) {
 			p.frameBuffer.frameIndex ^= 1
 		}
 
-		/*
-			select {
-				case p.frameBuffer.frameUpdated <- true:
-			default:
-			}
-		*/
 		p.frameBuffer.frameUpdated <- true
 
 		p.regs[PPUSTATUS].val |= 0x80

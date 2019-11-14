@@ -4,6 +4,11 @@ import (
 	"image/color"
 )
 
+const (
+	screenXWidth = 256
+	screenYWidth = 240
+)
+
 type apu struct {
 }
 

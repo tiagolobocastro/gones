@@ -56,7 +56,6 @@ func (n *nes) Step(seconds float64) {
 	cyclesPerSecond := float64(nesBaseFrequency)
 	cyclesPerSecond *= seconds
 	runCycles := int(cyclesPerSecond)
-	frames := n.ppu.frames
 
 	for runCycles > 0 {
 
@@ -71,10 +70,10 @@ func (n *nes) Step(seconds float64) {
 		n.dma.ticks(ticks)
 
 		runCycles -= ticks
-		//continue
-		if n.ppu.frames > frames {
-			return
-		}
+		// use this to step a whole frame at a time
+		// if n.ppu.frames > frames {
+		//	return
+		// }
 	}
 }
 
