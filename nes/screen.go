@@ -6,21 +6,28 @@ import (
 	"github.com/faiface/pixel/pixelgl"
 	"image/color"
 	_ "image/png" // ouch! needs to be here
-	"log"
 	"os"
 	"runtime"
 	"time"
 )
 
 type screen struct {
-	window *pixelgl.Window
-	sprite *pixel.Sprite
-
 	nes *nes
-	pix *pixel.PictureData
 
+	// window where we draw the sprite
+	window *pixelgl.Window
+
+	// front and back buffers
+	buffer0 *pixel.PictureData
+	buffer1 *pixel.PictureData
+	sprite  *pixel.Sprite
+
+	framebuffer framebuffer
+
+	// free run -> no vsync
 	freeRun bool
 
+	// FPS stats
 	fpsChannel   <-chan time.Time
 	fpsLastFrame int
 }
@@ -29,10 +36,6 @@ func (s *screen) init(nes *nes) {
 	s.nes = nes
 
 	s.setSprite()
-
-	if nes.cart.cart == "" {
-		return
-	}
 }
 
 func (s *screen) run(freeRun bool) {
@@ -68,6 +71,60 @@ func (s *screen) runThread() {
 }
 
 func (s *screen) runner() {
+	//lastLoopStamp := time.Now()
+
+	go func() {
+		tmr := time.Tick(time.Second / 60)
+		for {
+
+			// 1 frame
+			s.nes.Step(1)
+			// wait until ftime
+			<-tmr
+		}
+	}()
+
+	//lastLoopFrames := 0
+	for !s.window.Closed() {
+		// not good at the moment because the window updates do not match the ppu steps, unless we make sure
+		// we always break out of the step after a vblank?
+		// perhaps would be better if we run the nes on a separate thread and use channels to control when the
+		// nes can execute?
+		/*
+			// draw only after the ppu is finished poking the pixels -> after vblank when we increment the frames
+			dt := time.Since(lastLoopStamp).Seconds()
+			lastLoopStamp = time.Now()
+
+			// not quite right... if we click the window, it cause issues -> leads us to execute
+			// in big "chunks" and therefore loosing frames
+			// also same in debug mode...
+			// 0.02 seems to be small enough to make this imperceptible and allowing it to "catch up"
+			// doesn't work for debug as the nes step is slower, increasing the dt
+			if dt < 0.02 {
+				s.nes.Step(dt)
+			}
+			if s.nes.ppu.frames > lastLoopFrames {
+					if (s.nes.ppu.frames - lastLoopFrames) > 1 {
+						fmt.Printf("Ups, skipped %v frames!\n", s.nes.ppu.frames - lastLoopFrames)
+					}
+
+					s.draw()
+					s.window.Update()
+					lastLoopFrames = s.nes.ppu.frames
+				}
+		*/
+
+		<-s.framebuffer.frameUpdated
+		s.updateFpsTitle()
+
+		s.draw()
+		s.window.Update()
+
+		s.updateControllers()
+	}
+}
+
+func (s *screen) runnerx() {
 	lastLoopStamp := time.Now()
 	lastLoopFrames := 0
 
@@ -93,6 +150,10 @@ func (s *screen) runner() {
 		// draw only after the ppu is finished poking the pixels -> after vblank when we increment the frames
 		// todo: use the interrupt interconnect to detect this
 		if s.nes.ppu.frames > lastLoopFrames {
+			if (s.nes.ppu.frames - lastLoopFrames) > 1 {
+				fmt.Printf("Ups, skipped %v frames!\n", s.nes.ppu.frames-lastLoopFrames)
+			}
+
 			s.draw()
 			s.window.Update()
 			lastLoopFrames = s.nes.ppu.frames
@@ -137,6 +198,13 @@ func (s *screen) updateFpsTitle() {
 }
 
 func (s *screen) freeRunner() {
+	for !s.window.Closed() {
+		s.updateFpsTitle()
+		s.updateControllers()
+	}
+}
+
+func (s *screen) freeRunner_() {
 	lastLoopFrames := 0
 	for !s.window.Closed() {
 		// draw only after the ppu is finished poking the pixels -> after vblank when we increment the frames
@@ -154,59 +222,40 @@ func (s *screen) freeRunner() {
 func (s *screen) draw() {
 	// seems to be required for reasons unknown
 	s.updateSprite()
+
 	s.sprite.Draw(s.window, pixel.IM.Moved(s.window.Bounds().Center()).ScaledXY(s.window.Bounds().Center(), pixel.V(2, 2)))
 }
 
 func (s *screen) updateSprite() {
-	s.sprite = pixel.NewSprite(s.pix, pixel.R(0, 0, 256, 240))
+	if s.framebuffer.frameIndex == 1 {
+		// ppu is drawing new pixels on buffer1, which means the stable data is in buffer0
+		s.sprite = pixel.NewSprite(s.buffer0, pixel.R(0, 0, 256, 240))
+	} else {
+		s.sprite = pixel.NewSprite(s.buffer1, pixel.R(0, 0, 256, 240))
+	}
 }
 
 func (s *screen) setSprite() {
 
-	s.pix = &pixel.PictureData{
+	s.buffer0 = &pixel.PictureData{
 		Pix:    make([]color.RGBA, 256*240),
 		Stride: 256,
 		Rect:   pixel.R(0, 0, 256, 240),
 	}
 
-	s.sprite = pixel.NewSprite(s.pix, pixel.R(0, 0, 256, 240))
-}
-
-func (s *screen) addSpriteX(X uint) {
-
-	pic := &pixel.PictureData{
-		Pix:    make([]color.RGBA, 8*8),
-		Stride: 8,
-		Rect:   pixel.R(0, 0, 8, 8),
+	s.buffer1 = &pixel.PictureData{
+		Pix:    make([]color.RGBA, 256*240),
+		Stride: 256,
+		Rect:   pixel.R(0, 0, 256, 240),
 	}
 
-	file, err := os.Open("mario.chr") // For read access.
-	if err != nil {
-		log.Fatal(err)
+	s.framebuffer = framebuffer{
+		buffer0:      s.buffer0.Pix,
+		buffer1:      s.buffer1.Pix,
+		frameIndex:   0,
+		frameUpdated: make(chan bool),
+		frames:       0,
 	}
 
-	data := make([]byte, 10000)
-	_, err = file.Read(data)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	palette := [4]color.RGBA{
-		{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}, // B - W
-		{R: 0xFF, G: 0x00, B: 0x00, A: 0xFF}, // 1 - R
-		{R: 0x00, G: 0x00, B: 0xFF, A: 0xFF}, // 2 - B
-		{R: 0x00, G: 0xF0, B: 0xF0, A: 0xFF}, // 3 - LB
-	}
-
-	for y := uint(0); y < 8; y++ {
-		for x := uint(0); x < 8; x++ {
-
-			i := (data[y+X] >> (8 - 1 - x - X)) & 1
-			j := (data[y+8+X] >> (8 - 1 - x - X)) & 1
-			rgb := palette[j<<1|i]
-			pic.Pix[(8-1-y)*8+x] = rgb
-		}
-	}
-
-	s.sprite = pixel.NewSprite(pic, pixel.R(0, 0, 8, 8))
+	s.updateSprite()
 }

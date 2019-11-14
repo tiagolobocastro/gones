@@ -1,5 +1,9 @@
 package gones
 
+import (
+	"image/color"
+)
+
 type apu struct {
 }
 
@@ -69,6 +73,18 @@ const (
 	ModeIndexedIndirectX
 	ModeIndirectIndexedY
 )
+
+type framebuffer struct {
+	buffer0 []color.RGBA
+	buffer1 []color.RGBA
+
+	// 0 - backBuffer, 1 - frontBuffer
+	frameIndex   int
+	frameUpdated chan bool
+
+	// number of frames
+	frames int
+}
 
 type nes struct {
 	bus

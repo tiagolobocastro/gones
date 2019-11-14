@@ -30,7 +30,7 @@ VPHB SINN
 +--------- Generate an NMI at the start of the
            vertical blanking interval (0: off; 1: on)
 */
-func (p *Ppu) getBaseNametable() uint16 {
+func (p *Ppu) getBaseNameTable() uint16 {
 	return 0x2000 + uint16(p.regs[PPUCTRL].val&0x3)*0x400
 }
 
@@ -82,7 +82,7 @@ BGRs bMmG
 */
 
 func (p *Ppu) getGreyScale() uint8 {
-	return (p.regs[PPUMASK].val & 1)
+	return p.regs[PPUMASK].val & 1
 }
 
 func (p *Ppu) showBackgroundLeft() uint8 {
@@ -160,8 +160,8 @@ func (p *Ppu) writePPUScroll() {
 		// x:              CBA = d: .....CBA
 		// w:                  = 1
 		p.tRAM.val = (p.tRAM.val & 0xFFE0) | uint16(val>>8)
-		//p.xFine.write(val & 0x7)
-		p.xFine.write(val)
+		p.xFine.write(val & 0x7)
+		p.xScroll = val
 		p.wToggle.val = 1
 	} else {
 		// t: CBA..HG FED..... = d: HGFEDCBA

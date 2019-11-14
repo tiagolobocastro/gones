@@ -21,7 +21,7 @@ func (n *nes) init(cartPath string) {
 	n.screen.init(n)
 
 	n.cpu.init(n.bus.getBusInt(MapCPUId), n.verbose)
-	n.ppu.init(n.bus.getBusInt(MapPPUId), n.verbose, &n.cpu, n.screen.pix.Pix)
+	n.ppu.init(n.bus.getBusInt(MapPPUId), n.verbose, &n.cpu, &n.screen.framebuffer)
 	n.dma.init(n.bus.getBusInt(MapDMAId))
 
 	n.bus.connect(MapCPUId, &cpuMapper{n})
@@ -56,13 +56,14 @@ func (n *nes) Step(seconds float64) {
 	cyclesPerSecond := float64(nesBaseFrequency)
 	cyclesPerSecond *= seconds
 	runCycles := int(cyclesPerSecond)
+	frames := n.ppu.frames
 
 	for runCycles > 0 {
 
 		ticks := 1
 		if !n.dma.active() {
 			// cpu stalled whilst dma is active
-			ticks = int(n.cpu.exec())
+			ticks = n.cpu.exec()
 		}
 
 		// 3 ppu ticks per 1 cpu
@@ -70,13 +71,17 @@ func (n *nes) Step(seconds float64) {
 		n.dma.ticks(ticks)
 
 		runCycles -= ticks
+		//continue
+		if n.ppu.frames > frames {
+			return
+		}
 	}
 }
 
 func (n *nes) Run2() {
 	n.screen.run(false)
 	for {
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Second * 100)
 	}
 }
 

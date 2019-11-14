@@ -47,6 +47,9 @@ type Ppu struct {
 	lowOrderByte   uint8
 	highOrderByte  uint8
 
+	nameTable uint8
+	xScroll   uint8
+
 	// sprites
 	rOAM ram
 	// primary OAM
@@ -68,15 +71,15 @@ type Ppu struct {
 
 	palette ppuPalette
 
-	frameBuffer []color.RGBA
-
-	buffered   bool
-	backBuffer []color.RGBA
+	frameBuffer *framebuffer
+	buffered    bool
 
 	interrupts iInterrupt
+
+	finalScroll uint8
 }
 
-func (p *Ppu) init(busInt busInt, verbose bool, interrupts iInterrupt, frameBuffer []color.RGBA) {
+func (p *Ppu) init(busInt busInt, verbose bool, interrupts iInterrupt, framebuffer *framebuffer) {
 	p.verbose = verbose
 	p.busInt = busInt
 	p.interrupts = interrupts
@@ -84,12 +87,8 @@ func (p *Ppu) init(busInt busInt, verbose bool, interrupts iInterrupt, frameBuff
 	p.cycle = 0
 	p.scanLine = 0
 	p.frames = 0
-	p.frameBuffer = frameBuffer
-
-	p.buffered = true
-	if p.buffered {
-		p.backBuffer = make([]color.RGBA, 256*240)
-	}
+	p.frameBuffer = framebuffer
+	p.buffered = false
 
 	p.vRAM.init("v", 0)
 	p.tRAM.init("t", 0)
@@ -113,11 +112,20 @@ func (p *Ppu) reset() {
 func (p *Ppu) raise(flag uint8) {
 	if (flag & cpuIntNMI) != 0 {
 
+		p.frames++
+		p.frameBuffer.frames++
+
 		if p.buffered {
-			p.backBuffer, p.frameBuffer = p.frameBuffer, p.backBuffer
+			p.frameBuffer.frameIndex ^= 1
 		}
 
-		p.frames++
+		/*
+			select {
+				case p.frameBuffer.frameUpdated <- true:
+			default:
+			}
+		*/
+		p.frameBuffer.frameUpdated <- true
 
 		p.regs[PPUSTATUS].val |= 0x80
 
@@ -133,30 +141,30 @@ func (p *Ppu) clear(flag uint8) {
 	}
 }
 
-func (p *Ppu) getBaseN(first bool) uint16 {
+func (p *Ppu) getNameTable() uint16 {
 	nta := [2]uint16{}
-	if (p.regs[PPUCTRL].val)&0x3 == 0 {
+	if p.nameTable == 0 {
 		nta = [2]uint16{0x2000, 0x2400}
 	} else {
 		nta = [2]uint16{0x2400, 0x2000}
 	}
 
-	if first {
+	if (p.cycle + int(p.finalScroll)) > 255 {
 		return nta[1]
 	} else {
 		return nta[0]
 	}
 }
 
-func (p *Ppu) getBaseNX(first bool) uint16 {
+func (p *Ppu) getAttributeNameTable() uint16 {
 	nta := [2]uint16{}
-	if (p.regs[PPUCTRL].val)&0x3 == 0 {
+	if p.nameTable == 0 {
 		nta = [2]uint16{0x23C0, 0x27C0}
 	} else {
 		nta = [2]uint16{0x27C0, 0x23C0}
 	}
 
-	if first {
+	if (p.cycle + int(p.finalScroll)) > 255 {
 		return nta[1]
 	} else {
 		return nta[0]
@@ -165,30 +173,21 @@ func (p *Ppu) getBaseNX(first bool) uint16 {
 
 // start easy with a dummy imp
 func (p *Ppu) fetchNameTableEntry() {
-	x := (p.cycle + int(p.xFine.val)) % 256
-	xx := (p.cycle + int(p.xFine.val)) > 255
-
-	ne := p.getBaseN(xx)
-	p.nametableEntry = p.busInt.read8(ne + uint16(p.scanLine/8)*32 + uint16(x/8))
+	x := (p.cycle + int(p.finalScroll)) % 256
+	p.nametableEntry = p.busInt.read8(p.getNameTable() + uint16(p.scanLine/8)*32 + uint16(x/8))
 }
 
 func (p *Ppu) fetchAttributeTableEntry() {
-	x := (p.cycle + int(p.xFine.val)) % 256
-	xx := (p.cycle + int(p.xFine.val)) > 255
-
-	ne := p.getBaseNX(xx)
-	p.attributeEntry = p.busInt.read8(ne + uint16(p.scanLine/32)*8 + uint16(x/32))
+	x := (p.cycle + int(p.finalScroll)) % 256
+	p.attributeEntry = p.busInt.read8(p.getAttributeNameTable() + uint16(p.scanLine/32)*8 + uint16(x/32))
 }
 
 func (p *Ppu) fetchLowOrderByte() {
-	p.lowOrderByte = p.busInt.read8(0x1000 + uint16(p.nametableEntry)*16 + uint16(p.scanLine%8))
+	p.lowOrderByte = p.busInt.read8(p.getBackgroundTable() + uint16(p.nametableEntry)*16 + uint16(p.scanLine%8))
 }
 
 func (p *Ppu) fetchHighOrderByte() {
-	p.highOrderByte = p.busInt.read8(0x1000 + uint16(p.nametableEntry)*16 + uint16(p.scanLine%8) + 8)
-}
-
-func (p *Ppu) combineBS() {
+	p.highOrderByte = p.busInt.read8(p.getBackgroundTable() + uint16(p.nametableEntry)*16 + uint16(p.scanLine%8) + 8)
 }
 
 func (p *Ppu) exec() {
@@ -219,28 +218,18 @@ func (p *Ppu) exec() {
 	p.fgPriority = false
 
 	// background
-	if p.scanLine > -1 && p.scanLine < 240 && p.cycle < 256 && p.showBackground() {
-		/*
-			switch p.cycle%8 {
-			case 1:
-				p.fetchNameTableEntry()
-			case 3:
-				p.fetchAttributeTableEntry()
-			case 5:
-				p.fetchLowOrderByte()
-			case 7:
-				p.fetchHighOrderByte()
-			case 0:
-				p.combineBS()
-			}
-		*/
+	if p.scanLine > -1 && p.scanLine < 240 && p.cycle < 255 && p.showBackground() {
+
+		if p.scanLine > 0 && p.scanLine%32 == 0 {
+			p.nameTable = p.regs[PPUCTRL].val & 3
+		}
+
 		p.fetchNameTableEntry()
 		p.fetchAttributeTableEntry()
 		p.fetchLowOrderByte()
 		p.fetchHighOrderByte()
 
-		xx := uint8((p.cycle + int(p.xFine.val)) % 256)
-
+		xx := (p.cycle + int(p.finalScroll)) % 256
 		bit := uint8(8 - xx%8 - 1)
 
 		b0 := (p.lowOrderByte >> bit) & 1
@@ -249,7 +238,7 @@ func (p *Ppu) exec() {
 
 		palette := p.attributeEntry
 
-		i := (xx/16)%2 | ((y/16)%2)<<1
+		i := (uint8(xx)/16)%2 | ((y/16)%2)<<1
 		p.bgPalette = (palette >> (2 * i)) & 3
 	}
 
@@ -278,8 +267,7 @@ func (p *Ppu) exec() {
 				// non transparent pixel found so "accept" this sprite
 				if p.fgIndex != 0 {
 
-					// todo: not quite right yet
-					if s.id == 0 && /*p.bgIndex>0 &&*/ x != 255 {
+					if s.id == 0 && p.bgIndex > 0 && x != 255 {
 						p.regs[PPUSTATUS].set(statusSprite0Hit)
 					}
 
@@ -291,7 +279,7 @@ func (p *Ppu) exec() {
 
 	if p.scanLine > -1 && p.scanLine < 240 && p.cycle < 256 {
 
-		// who gets drawn based on transparency (index==0) and priority
+		// what gets drawn based on transparency (index==0) and priority
 		if p.bgIndex == 0 && p.fgIndex == 0 {
 			p.drawPixel(x, y, p.palette.nesPalette[p.busInt.read8(0x3F00)])
 		} else if p.bgIndex > 0 && p.fgIndex == 0 {
@@ -308,12 +296,17 @@ func (p *Ppu) exec() {
 	}
 
 	p.cycle += 1
+	if p.cycle == 257 {
+		p.finalScroll = p.xScroll
+	}
 	if p.cycle > 340 {
 		p.scanLine += 1
 		p.cycle = 0
 
 		if p.scanLine == 241 {
 			p.raise(cpuIntNMI)
+		} else if p.scanLine == 242 {
+			p.nameTable = p.regs[PPUCTRL].val & 0x3
 		}
 
 		if p.scanLine > 260 {
@@ -325,10 +318,10 @@ func (p *Ppu) exec() {
 }
 
 func (p *Ppu) drawPixel(x uint8, y uint8, c color.RGBA) {
-	if !p.buffered {
-		p.frameBuffer[(240-1-uint16(y))*256+uint16(x)] = c
+	if p.buffered && p.frameBuffer.frameIndex == 0 {
+		p.frameBuffer.buffer0[(240-1-uint16(y))*256+uint16(x)] = c
 	} else {
-		p.backBuffer[(240-1-uint16(y))*256+uint16(x)] = c
+		p.frameBuffer.buffer1[(240-1-uint16(y))*256+uint16(x)] = c
 	}
 }
 
