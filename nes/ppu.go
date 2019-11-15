@@ -117,7 +117,7 @@ func (p *Ppu) raise(flag uint8) {
 			p.frameBuffer.frameIndex ^= 1
 		}
 
-		//p.frameBuffer.frameUpdated <- true
+		p.frameBuffer.frameUpdated <- true
 
 		p.regs[PPUSTATUS].val |= 0x80
 
