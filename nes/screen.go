@@ -50,7 +50,7 @@ func (s *screen) runThread() {
 
 	cfg := pixelgl.WindowConfig{
 		Title:  "GoNes",
-		Bounds: pixel.R(0, 0, 510, 480),
+		Bounds: pixel.R(0, 0, screenXWidth, screenYHeight),
 		VSync:  true,
 	}
 	window, err := pixelgl.NewWindow(cfg)
@@ -156,30 +156,30 @@ func (s *screen) draw() {
 	// seems to be required, for reasons unknown
 	s.updateSprite()
 
-	s.sprite.Draw(s.window, pixel.IM.Moved(s.window.Bounds().Center()).ScaledXY(s.window.Bounds().Center(), pixel.V(2, 2)))
+	s.sprite.Draw(s.window, pixel.IM.Moved(s.window.Bounds().Center()).ScaledXY(s.window.Bounds().Center(), pixel.V(3, 3)))
 }
 
 func (s *screen) updateSprite() {
 	if s.framebuffer.frameIndex == 1 {
 		// ppu is drawing new pixels on buffer1, which means the stable data is in buffer0
-		s.sprite = pixel.NewSprite(s.buffer0, pixel.R(0, 0, screenXWidth, screenYWidth))
+		s.sprite = pixel.NewSprite(s.buffer0, pixel.R(0, 0, frameXWidth, frameYHeight))
 	} else {
-		s.sprite = pixel.NewSprite(s.buffer1, pixel.R(0, 0, screenXWidth, screenYWidth))
+		s.sprite = pixel.NewSprite(s.buffer1, pixel.R(0, 0, frameXWidth, frameYHeight))
 	}
 }
 
 func (s *screen) setSprite() {
 
 	s.buffer0 = &pixel.PictureData{
-		Pix:    make([]color.RGBA, screenXWidth*screenYWidth),
-		Stride: screenXWidth,
-		Rect:   pixel.R(0, 0, screenXWidth, screenYWidth),
+		Pix:    make([]color.RGBA, frameXWidth*frameYHeight),
+		Stride: frameXWidth,
+		Rect:   pixel.R(0, 0, frameXWidth, frameYHeight),
 	}
 
 	s.buffer1 = &pixel.PictureData{
-		Pix:    make([]color.RGBA, screenXWidth*screenYWidth),
-		Stride: screenXWidth,
-		Rect:   pixel.R(0, 0, screenXWidth, screenYWidth),
+		Pix:    make([]color.RGBA, frameXWidth*frameYHeight),
+		Stride: frameXWidth,
+		Rect:   pixel.R(0, 0, frameXWidth, frameYHeight),
 	}
 
 	s.framebuffer = framebuffer{

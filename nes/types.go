@@ -5,8 +5,12 @@ import (
 )
 
 const (
-	screenXWidth = 256
-	screenYWidth = 240
+	frameXWidth  = 256
+	frameYHeight = 240
+
+	screenFrameRatio = 3
+	screenXWidth     = frameXWidth * screenFrameRatio
+	screenYHeight    = frameYHeight * screenFrameRatio
 )
 
 type apu struct {
