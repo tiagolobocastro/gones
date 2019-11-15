@@ -57,6 +57,7 @@ func (n *nes) Step(seconds float64) {
 	cyclesPerSecond *= seconds
 	runCycles := int(cyclesPerSecond)
 
+	//frames := n.ppu.frameBuffer.frames
 	for runCycles > 0 {
 
 		ticks := 1
@@ -71,9 +72,13 @@ func (n *nes) Step(seconds float64) {
 
 		runCycles -= ticks
 		// use this to step a whole frame at a time
-		// if n.ppu.frames > frames {
+		// if n.ppu.frameBuffer.frames > frames {
 		//	return
 		// }
+	}
+
+	if n.resetRq {
+		n.reset()
 	}
 }
 
@@ -119,7 +124,16 @@ func (n *nes) Run() {
 }
 
 func (n *nes) reset() {
+	// probably need to stall them first
+	n.ppu.reset()
+	n.dma.reset()
 	n.cpu.reset()
+
+	n.resetRq = false
+}
+
+func (n *nes) resetRequest() {
+	n.resetRq = true
 }
 
 func NewNES(verbose bool, cart string) *nes {

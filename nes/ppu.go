@@ -86,7 +86,6 @@ func (p *Ppu) init(busInt busInt, verbose bool, interrupts iInterrupt, framebuff
 	p.clock = 0
 	p.cycle = 0
 	p.scanLine = -1
-	p.frames = 0
 	p.frameBuffer = framebuffer
 	p.buffered = true
 
@@ -112,14 +111,13 @@ func (p *Ppu) reset() {
 func (p *Ppu) raise(flag uint8) {
 	if (flag & cpuIntNMI) != 0 {
 
-		p.frames++
 		p.frameBuffer.frames++
 
 		if p.buffered {
 			p.frameBuffer.frameIndex ^= 1
 		}
 
-		p.frameBuffer.frameUpdated <- true
+		//p.frameBuffer.frameUpdated <- true
 
 		p.regs[PPUSTATUS].val |= 0x80
 
@@ -168,16 +166,20 @@ func (p *Ppu) getAttributeNameTable() uint16 {
 // start easy with a dummy imp
 func (p *Ppu) fetchNameTableEntry() {
 	x := (p.cycle + int(p.finalScroll)) % 256
-	p.nametableEntry = p.busInt.read8(p.getNameTable() + uint16(p.scanLine/8)*32 + uint16(x/8))
+	addr := p.getNameTable() + uint16(p.scanLine/8)*32 + uint16(x/8)
+	p.nametableEntry = p.busInt.read8(addr)
 }
 
 func (p *Ppu) fetchAttributeTableEntry() {
 	x := (p.cycle + int(p.finalScroll)) % 256
-	p.attributeEntry = p.busInt.read8(p.getAttributeNameTable() + uint16(p.scanLine/32)*8 + uint16(x/32))
+	addr := p.getAttributeNameTable() + uint16(p.scanLine/32)*8 + uint16(x/32)
+	p.attributeEntry = p.busInt.read8(addr)
 }
 
 func (p *Ppu) fetchLowOrderByte() {
-	p.lowOrderByte = p.busInt.read8(p.getBackgroundTable() + uint16(p.nametableEntry)*16 + uint16(p.scanLine%8))
+	table := p.getBackgroundTable()
+	addr := table + uint16(p.nametableEntry)*16 + uint16(p.scanLine%8)
+	p.lowOrderByte = p.busInt.read8(addr)
 }
 
 func (p *Ppu) fetchHighOrderByte() {
@@ -292,6 +294,7 @@ func (p *Ppu) exec() {
 		p.finalScroll = p.xScroll
 	}
 	if p.cycle > 340 {
+
 		p.scanLine += 1
 		p.cycle = 0
 

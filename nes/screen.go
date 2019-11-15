@@ -84,7 +84,7 @@ func (s *screen) runner() {
 
 		<-s.framebuffer.frameUpdated
 
-		frameDiff := s.nes.ppu.frames - lastLoopFrames
+		frameDiff := s.framebuffer.frames - lastLoopFrames
 		if frameDiff > 0 {
 			if frameDiff > 1 {
 				fmt.Printf("Ups, skipped %v frames!\n", frameDiff)
@@ -92,7 +92,7 @@ func (s *screen) runner() {
 
 			s.draw()
 			s.window.Update()
-			lastLoopFrames = s.nes.ppu.frames
+			lastLoopFrames = s.framebuffer.frames
 		}
 
 		s.updateFpsTitle()
@@ -115,18 +115,30 @@ var buttons = [8]struct {
 }
 
 func (s *screen) updateControllers() {
-
+	onePressed := false
 	for _, button := range buttons {
 		pressed := s.window.Pressed(button.key)
 		s.nes.ctrl.poke(0, button.id, pressed)
+		if pressed {
+			onePressed = true
+		}
+	}
+
+	if s.window.Pressed(pixelgl.KeyLeftControl) && s.window.Pressed(pixelgl.KeyR) {
+		s.nes.resetRequest()
+		onePressed = true
+	}
+
+	if onePressed {
+		s.window.UpdateInput()
 	}
 }
 
 func (s *screen) updateFpsTitle() {
 	select {
 	case <-s.fpsChannel:
-		frames := s.nes.ppu.frames - s.fpsLastFrame
-		s.fpsLastFrame = s.nes.ppu.frames
+		frames := s.framebuffer.frames - s.fpsLastFrame
+		s.fpsLastFrame = s.framebuffer.frames
 
 		s.window.SetTitle(fmt.Sprintf("%s | FPS: %d", "GoNes", frames))
 	default:

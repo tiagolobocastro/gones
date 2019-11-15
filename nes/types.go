@@ -105,6 +105,7 @@ type nes struct {
 	screen screen
 
 	verbose bool
+	resetRq bool
 }
 
 const (
