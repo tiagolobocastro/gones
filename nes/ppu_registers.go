@@ -9,7 +9,7 @@ const (
 	PPUSCROLL
 	PPUADDR
 	PPUDATA
-	OAMDMA
+	//OAMDMA
 )
 
 /* PPUCTRL
@@ -193,6 +193,19 @@ func (p *Ppu) writePPUAddr() {
 
 func (p *Ppu) readPPUData() uint8 {
 	val := p.busInt.read8(p.vRAM.val)
+
+	// https://wiki.nesdev.com/w/index.php/PPU_registers#PPUSTATUS
+	// When reading while the VRAM address is in the range 0-$3EFF (i.e., before the palettes), the read will return
+	// the contents of an internal read buffer. This internal buffer is updated only when reading PPUDATA, and so is
+	// preserved across frames. After the CPU reads and gets the contents of the internal buffer, the PPU will
+	// immediately update the internal buffer with the byte at the current VRAM address.
+	// Thus, after setting the VRAM address, one should first read this register and discard the result.
+	if p.vRAM.val%0x4000 < 0x3F00 {
+		p.vRAMBuffer, val = val, p.vRAMBuffer
+	} else {
+		p.vRAMBuffer = p.busInt.read8(p.vRAM.val - 0x1000)
+	}
+
 	p.regs[PPUDATA].val = val
 
 	p.vRAM.val += p.getVRAMAddrInc()

@@ -50,6 +50,8 @@ type Ppu struct {
 	nameTable uint8
 	xScroll   uint8
 
+	vRAMBuffer uint8
+
 	// sprites
 	rOAM ram
 	// primary OAM
