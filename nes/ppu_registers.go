@@ -12,6 +12,81 @@ const (
 	//OAMDMA
 )
 
+// http://wiki.nesdev.com/w/index.php/PPU_scrolling
+//    First      Second
+// /¯¯¯¯¯¯¯¯¯\ /¯¯¯¯¯¯¯\
+// 0 0yy NN YY YYY XXXXX
+//   ||| || || ||| +++++-- coarse X scroll
+//   ||| || ++-+++-------- coarse Y scroll
+//   ||| ++--------------- nametable select
+//   +++------------------ fine Y scroll
+type loopyRegister struct {
+	register16
+}
+
+func (l *loopyRegister) setNameTables(val uint16) {
+	l.val = (l.val & 0xF3FF) | ((val & 0x3) << 10)
+}
+func (l *loopyRegister) getNameTables() uint16 {
+	return (l.val & 0x0C00) >> 10
+}
+func (l *loopyRegister) flipNameTableH() {
+	l.val ^= 0x0400
+}
+func (l *loopyRegister) flipNameTableV() {
+	l.val ^= 0x0800
+}
+
+// t: ....... ...HGFED = d: HGFED...
+// x:              CBA = d: .....CBA
+// w:                  = 1
+func (l *loopyRegister) setCoarseX(val uint16) {
+	l.val = (l.val & 0xFFE0) | (val & 0x1F)
+}
+func (l *loopyRegister) getCoarseX() uint16 {
+	return l.val & 0x1F
+}
+
+// t: CBA..HG FED..... = d: HGFEDCBA
+// w:                  = 01
+func (l *loopyRegister) setCoarseY(val uint16) {
+	l.val = (l.val & 0xFC1F) | ((val & 0x1F) << 5)
+}
+func (l *loopyRegister) getCoarseY() uint16 {
+	return (l.val >> 5) & 0x1F
+}
+
+func (l *loopyRegister) setFineY(val uint16) {
+	l.val = (l.val & 0x8FFF) | ((val & 0x7) << 12)
+}
+func (l *loopyRegister) getFineY() uint16 {
+	return (l.val >> 12) & 0x7
+}
+
+func (l *loopyRegister) setMsb(val uint8) {
+	l.val = (l.val & 0x80FF) | ((uint16(val) & 0x3F) << 8)
+}
+func (l *loopyRegister) setLsb(val uint8) {
+	l.val = (l.val & 0xFF00) | uint16(val)
+}
+
+func (l *loopyRegister) copy(t loopyRegister) {
+	l.val = t.val
+}
+func (l *loopyRegister) copyHori(t loopyRegister) {
+	// v: ....F.. ...EDCBA = t: ....F.. ...EDCBA
+	l.val = (l.val & 0xFBE0) | (t.val & 0x041F)
+}
+func (l *loopyRegister) copyVert(t loopyRegister) {
+	// v: IHGF.ED CBA..... = t: IHGF.ED CBA.....
+	l.val = (l.val & 0x841F) | (t.val & 0x7BE0)
+}
+
+// 1 or 32 <=> y pixel or nametable?
+func (l *loopyRegister) inc(val uint16) {
+	l.val += val
+}
+
 /* PPUCTRL
 7  bit  0
 ---- ----
@@ -64,6 +139,13 @@ func (p *Ppu) getMasterSlaveSelect() uint8 {
 
 func (p *Ppu) getNMIVertical() uint8 {
 	return (p.regs[PPUCTRL].val & 128) >> 7
+}
+
+func (p *Ppu) writeControl() {
+	val := p.regs[PPUCTRL].val
+
+	// t: ....BA.. ........ = d: ......BA
+	p.tRAM.setNameTables(uint16(val))
 }
 
 /* PPU Mask
@@ -159,15 +241,17 @@ func (p *Ppu) writePPUScroll() {
 		// t: ....... ...HGFED = d: HGFED...
 		// x:              CBA = d: .....CBA
 		// w:                  = 1
-		p.tRAM.val = (p.tRAM.val & 0xFFE0) | uint16(val>>8)
+		p.tRAM.setCoarseX(uint16(val) >> 3)
 		p.xFine.write(val & 0x7)
-		p.xScroll = val
+
+		p.xScroll = val // for the dummy version
 		p.wToggle.val = 1
 	} else {
 		// t: CBA..HG FED..... = d: HGFEDCBA
 		// w:                  = 01
-		p.tRAM.val = (p.tRAM.val & 0x8FFF) | ((uint16(val) & 0x7) << 12)
-		p.tRAM.val = (p.tRAM.val & 0xFC1F) | ((uint16(val) & 0xF8) << 2)
+		p.tRAM.setFineY(uint16(val))
+		p.tRAM.setCoarseY(uint16(val) >> 3)
+
 		p.wToggle.val = 0
 	}
 }
@@ -179,14 +263,14 @@ func (p *Ppu) writePPUAddr() {
 		// t: .FEDCBA ........ = d: ..FEDCBA
 		// t: X...... ........ = 0
 		// w:                  = 1
-		p.tRAM.val = (p.tRAM.val & 0x80FF) | ((uint16(val) & 0x3F) << 8)
+		p.tRAM.setMsb(val)
 		p.wToggle.val = 1
 	} else {
 		// t: ....... HGFEDCBA = d: HGFEDCBA
 		// v                   = t
 		// w:                  = 0
-		p.tRAM.val = (p.tRAM.val & 0xFF00) | uint16(val)
-		p.vRAM.val = p.tRAM.val
+		p.tRAM.setLsb(val)
+		p.vRAM.copy(p.tRAM)
 		p.wToggle.val = 0
 	}
 }
@@ -205,10 +289,9 @@ func (p *Ppu) readPPUData() uint8 {
 	} else {
 		p.vRAMBuffer = p.busInt.read8(p.vRAM.val - 0x1000)
 	}
-
 	p.regs[PPUDATA].val = val
 
-	p.vRAM.val += p.getVRAMAddrInc()
+	p.vRAM.inc(p.getVRAMAddrInc())
 
 	return val
 }
@@ -216,7 +299,7 @@ func (p *Ppu) writePPUData() {
 	val := p.regs[PPUDATA].val
 	p.busInt.write8(p.vRAM.val, val)
 
-	p.vRAM.val += p.getVRAMAddrInc()
+	p.vRAM.inc(p.getVRAMAddrInc())
 }
 
 func (p *Ppu) readOAMData() uint8 {
@@ -236,7 +319,8 @@ func (p *Ppu) writeOAMData() {
 
 func (p *Ppu) initRegisters() {
 
-	p.regs[PPUCTRL].initx("PPUCTRL", 0, nil, nil)
+	// external CPU mapped registers
+	p.regs[PPUCTRL].initx("PPUCTRL", 0, p.writeControl, nil)
 	p.regs[PPUMASK].initx("PPUMASK", 0, nil, nil)
 	p.regs[PPUSTATUS].initx("PPUSTATUS", 0, nil, p.readPPUStatus)
 	p.regs[OAMADDR].initx("OAMADDR", 0, nil, nil)
@@ -244,4 +328,10 @@ func (p *Ppu) initRegisters() {
 	p.regs[PPUSCROLL].initx("PPUSCROLL", 0, p.writePPUScroll, nil)
 	p.regs[PPUADDR].initx("PPUADDR", 0, p.writePPUAddr, nil)
 	p.regs[PPUDATA].initx("PPUDATA", 0, p.writePPUData, p.readPPUData)
+
+	// internal registers
+	p.vRAM.init("v", 0)
+	p.tRAM.init("t", 0)
+	p.xFine.init("x", 0)
+	p.wToggle.init("w", 0)
 }

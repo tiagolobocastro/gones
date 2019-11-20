@@ -1,213 +1,30 @@
 package gones
 
-import (
-	"image/color"
-)
-
-// http://wiki.nesdev.com/w/index.php/PPU_OAM
-type OamSprite struct {
-	// Y position of top of sprite
-	yPos uint8
-	// Tile index number
-	tIndex uint8
-	// Sprite Attributes
-	attributes uint8
-	// X position of left side of sprite
-	xPos uint8
-
-	// sprite id
-	id uint8
-
-	// data
-	msbIndex uint8
-	lsbIndex uint8
+func (p *Ppu) updateShifter() {
+	// palette and pixel index
+	// a a i i
+	p.rowShifter <<= 4
 }
 
-type Ppu struct {
-	busInt
-
-	clock    int
-	cycle    int
-	scanLine int
-	frames   int
-	verbose  bool
-
-	// cpu mapper registers
-	regs [8]register
-
-	// internal registers: http://wiki.nesdev.com/w/index.php/PPU_scrolling
-	vRAM    register16 // Current VRAM address (15 bits)
-	tRAM    register16 // Temporary VRAM address (15 bits); can also be thought of as the address of the top left onscreen tile.
-	xFine   register   // Fine X scroll (3 bits)
-	wToggle register   // First or second write toggle (1 bit)
-
-	// background
-	nametableEntry uint8
-	attributeEntry uint8
-	lowOrderByte   uint8
-	highOrderByte  uint8
-
-	nameTable uint8
-	xScroll   uint8
-
-	vRAMBuffer uint8
-
-	// sprites
-	rOAM ram
-	// primary OAM
-	pOAM [8]OamSprite
-	// secondary OAM
-	// In addition to the primary OAM memory, the PPU contains 32 bytes (enough for 8 sprites) of secondary OAM memory
-	// that is not directly accessible by the program. During each visible scanline this secondary OAM is first cleared,
-	// and then a linear search of the entire primary OAM is carried out to find sprites that are within y range for the
-	// next scanline (the sprite evaluation phase). The OAM data for each sprite found to be within range is copied into
-	// the secondary OAM, which is then used to initialize eight internal sprite output units.
-	sOAM [8]OamSprite
-
-	// move this into a struct maybe
-	bgIndex    uint8
-	bgPalette  uint8
-	fgIndex    uint8
-	fgPalette  uint8
-	fgPriority bool
-
-	palette ppuPalette
-
-	frameBuffer *framebuffer
-	buffered    bool
-
-	interrupts iInterrupt
-
-	finalScroll uint8
-}
-
-func (p *Ppu) init(busInt busInt, verbose bool, interrupts iInterrupt, framebuffer *framebuffer) {
-	p.verbose = verbose
-	p.busInt = busInt
-	p.interrupts = interrupts
-	p.clock = 0
-	p.cycle = 0
-	p.scanLine = -1
-	p.frameBuffer = framebuffer
-	p.buffered = true
-
-	p.vRAM.init("v", 0)
-	p.tRAM.init("t", 0)
-	p.xFine.init("x", 0)
-	p.wToggle.init("w", 0)
-	p.rOAM.initNfill(256, 0xfe)
-	p.palette.init()
-
-	p.initRegisters()
-	p.clearSecOAM()
-	p.clearPrimOAM()
-}
-
-func (p *Ppu) reset() {
-	p.init(p.busInt, p.verbose, p.interrupts, p.frameBuffer)
-}
-
-// interrupt
-// only look at the CPU NMI for now
-// need to implement the interrupt delay as well since the cpu and ppu and not on the same clock
-func (p *Ppu) raise(flag uint8) {
-	if (flag & cpuIntNMI) != 0 {
-
-		p.frameBuffer.frames++
-
-		if p.buffered {
-			p.frameBuffer.frameIndex ^= 1
-		}
-
-		p.frameBuffer.frameUpdated <- true
-
-		p.regs[PPUSTATUS].val |= 0x80
-
-		if p.getNMIVertical() == 1 {
-			p.interrupts.raise(flag & cpuIntNMI)
-		}
-	}
-}
-func (p *Ppu) clear(flag uint8) {
-	if (flag & cpuIntNMI) != 0 {
-		p.regs[PPUSTATUS].val &= 0x7F
-		p.interrupts.clear(flag & cpuIntNMI)
+// 1 row of aaii*8
+func (p *Ppu) buildBgPixelRow() {
+	attr := (p.attributeEntry & 0x3) << 2
+	for i := uint(0); i < 8; i++ {
+		pixel := uint64(attr | (p.highOrderByte>>6)&2 | (p.lowOrderByte>>7)&1)
+		p.rowShifter |= pixel << ((7 - i) * 4)
+		p.highOrderByte <<= 1
+		p.lowOrderByte <<= 1
 	}
 }
 
-func (p *Ppu) getNameTable() uint16 {
-	nta := [2]uint16{}
-	if p.nameTable == 0 {
-		nta = [2]uint16{0x2000, 0x2400}
-	} else {
-		nta = [2]uint16{0x2400, 0x2000}
-	}
-
-	if (p.cycle + int(p.finalScroll)) > 255 {
-		return nta[1]
-	} else {
-		return nta[0]
-	}
-}
-
-func (p *Ppu) getAttributeNameTable() uint16 {
-	nta := [2]uint16{}
-	if p.nameTable == 0 {
-		nta = [2]uint16{0x23C0, 0x27C0}
-	} else {
-		nta = [2]uint16{0x27C0, 0x23C0}
-	}
-
-	if (p.cycle + int(p.finalScroll)) > 255 {
-		return nta[1]
-	} else {
-		return nta[0]
-	}
-}
-
-// start easy with a dummy imp
-func (p *Ppu) fetchNameTableEntry() {
-	x := (p.cycle + int(p.finalScroll)) % 256
-	addr := p.getNameTable() + uint16(p.scanLine/8)*32 + uint16(x/8)
-	p.nametableEntry = p.busInt.read8(addr)
-}
-
-func (p *Ppu) fetchAttributeTableEntry() {
-	x := (p.cycle + int(p.finalScroll)) % 256
-	addr := p.getAttributeNameTable() + uint16(p.scanLine/32)*8 + uint16(x/32)
-	p.attributeEntry = p.busInt.read8(addr)
-}
-
-func (p *Ppu) fetchLowOrderByte() {
-	table := p.getBackgroundTable()
-	addr := table + uint16(p.nametableEntry)*16 + uint16(p.scanLine%8)
-	p.lowOrderByte = p.busInt.read8(addr)
-}
-
-func (p *Ppu) fetchHighOrderByte() {
-	p.highOrderByte = p.busInt.read8(p.getBackgroundTable() + uint16(p.nametableEntry)*16 + uint16(p.scanLine%8) + 8)
+func (p *Ppu) getBgPixel() uint8 {
+	return uint8(p.rowShifter >> (32 + ((7 - p.xFine.val) * 4)))
 }
 
 func (p *Ppu) exec() {
 
-	if p.scanLine < 240 {
-		switch p.cycle {
-		// the ppu "works" these every cycle and it might more efficient for us to do the same
-		// but now for simplicity let's bundle each task
-		case 1:
-			p.clearSecOAM()
-			if p.scanLine == -1 {
-				p.regs[PPUSTATUS].clr(statusSpriteOverflow | statusSprite0Hit)
-			}
-		case 257:
-			p.evalSprites()
-		case 321:
-			p.loadSprites()
-		}
-	}
-
 	// setup values required for the draw decision
-	x := uint8(p.cycle)
+	x := uint8(p.cycle) - 1
 	y := uint8(p.scanLine)
 	p.bgIndex = 0
 	p.bgPalette = 0
@@ -215,65 +32,146 @@ func (p *Ppu) exec() {
 	p.fgPalette = 0
 	p.fgPriority = false
 
-	// background
-	if p.scanLine > -1 && p.scanLine < 240 && p.cycle < 256 && p.showBackground() {
+	// http://wiki.nesdev.com/w/images/d/d1/Ntsc_timing.png
+	visibleFrame := p.scanLine >= 0 && p.scanLine < 240
+	preRenderLn := p.scanLine == -1
+	vBlankLn := p.scanLine == 241
+	renderFrame := visibleFrame || preRenderLn
+	copyVertCycle := p.cycle >= 280 && p.cycle <= 304
+	copyHoriCycle := p.cycle == 257
+	incVert := p.cycle == 256
 
-		if p.scanLine > 0 && p.scanLine%32 == 0 {
-			p.nameTable = p.regs[PPUCTRL].val & 3
-		}
+	// cycle 0 is skipped for BG+odd => background and odd sprite frames?
+	// cycle 337-340 are unused
+	visibleCycle := p.cycle >= 1 && p.cycle <= 256
+	bgTileFetch := visibleCycle || (p.cycle >= 321 && p.cycle <= 336)
 
-		p.fetchNameTableEntry()
-		p.fetchAttributeTableEntry()
-		p.fetchLowOrderByte()
-		p.fetchHighOrderByte()
+	if p.showBackground() {
+		if renderFrame && bgTileFetch && p.showBackground() {
 
-		xx := (p.cycle + int(p.finalScroll)) % 256
-		bit := uint8(8 - xx%8 - 1)
-
-		b0 := (p.lowOrderByte >> bit) & 1
-		b1 := (p.highOrderByte >> bit) & 1
-		p.bgIndex = b0 | (b1 << 1)
-
-		palette := p.attributeEntry
-
-		i := (uint8(xx)/16)%2 | ((y/16)%2)<<1
-		p.bgPalette = (palette >> (2 * i)) & 3
-	}
-
-	if p.scanLine > -1 && p.scanLine < 240 && p.cycle < 256 && p.showSprites() {
-		for i := range p.pOAM {
-			if p.pOAM[i].id == 64 {
-				continue
+			if visibleFrame && visibleCycle {
+				bgPix := p.getBgPixel()
+				p.bgIndex = bgPix & 0x3
+				p.bgPalette = (bgPix >> 2) & 0x3
 			}
 
-			s := &p.pOAM[i]
+			p.updateShifter()
+			switch p.cycle % 8 {
+			case 1:
+				p.nametableEntry = p.busInt.read8(0x2000 | (p.vRAM.val & 0x0FFF))
+			case 3:
+				//  NN 1111 YYY XXX
+				//  || |||| ||| +++-- high 3 bits of coarse X (x/4)
+				//  || |||| +++------ high 3 bits of coarse Y (y/4)
+				//  || ++++---------- attribute offset (960 bytes)
+				//  ++--------------- nametable select
+				vv := 0x2000 | 0x03C0 | p.vRAM.getNameTables()<<10 | ((p.vRAM.getCoarseY() >> 2) << 3) | (p.vRAM.getCoarseX() >> 2)
 
-			xi := uint(x) - uint(s.xPos)
+				p.attributeEntry = p.busInt.read8(vv)
 
-			if xi < 8 {
+				// BR BL TR TL
+				// shift to find the right half nibble
+				if (p.vRAM.getCoarseY() & 0x02) != 0 {
+					p.attributeEntry >>= 4
+				}
+				if (p.vRAM.getCoarseX() & 0x02) != 0 {
+					p.attributeEntry >>= 2
+				}
+			case 5:
+				p.lowOrderByte = p.busInt.read8(p.getBackgroundTable() | uint16(p.nametableEntry)<<4 | p.vRAM.getFineY())
+			case 7:
+				p.highOrderByte = p.busInt.read8(p.getBackgroundTable() | uint16(p.nametableEntry)<<4 | p.vRAM.getFineY() | 8)
+			case 0:
+				p.buildBgPixelRow()
 
-				bit := 8 - xi - 1
+				// Increment Horizontal(v)
+				if p.vRAM.getCoarseX() == 31 {
+					p.vRAM.setCoarseX(0)
+					p.vRAM.flipNameTableH()
+				} else {
+					p.vRAM.setCoarseX(p.vRAM.getCoarseX() + 1)
+				}
+			}
+		}
 
-				b0 := (s.lsbIndex >> bit) & 1
-				b1 := (s.msbIndex >> bit) & 1
-				p.fgIndex = b0 | (b1 << 1)
-				p.fgPriority = (s.attributes>>5)&1 == 0
-				p.fgPalette = s.attributes & 0x3
-
-				// non transparent pixel found so "accept" this sprite
-				if p.fgIndex != 0 {
-
-					if s.id == 0 && p.bgIndex > 0 && x != 255 {
-						p.regs[PPUSTATUS].set(statusSprite0Hit)
+		if renderFrame {
+			if incVert {
+				// Increment Vertical(v)
+				fineY := p.vRAM.getFineY()
+				if fineY < 7 {
+					p.vRAM.setFineY(p.vRAM.getFineY() + 1)
+				} else {
+					p.vRAM.setFineY(0)
+					y := p.vRAM.getCoarseY()
+					if y == 29 {
+						y = 0
+						p.vRAM.flipNameTableV()
+					} else if y == 31 {
+						y = 0
+					} else {
+						y += 1
 					}
+					p.vRAM.setCoarseY(y)
+				}
+			}
 
-					break
+			if copyHoriCycle {
+				// Horizontal(v) = Horizontal(t)
+				p.vRAM.copyHori(p.tRAM)
+			}
+		}
+
+		if preRenderLn && copyVertCycle {
+			// Vertical(v) = Vertical(t)
+			p.vRAM.copyVert(p.tRAM)
+		}
+	}
+
+	if visibleFrame && p.showSprites() {
+		switch p.cycle {
+		// the ppu "works" these every cycle and it might more efficient for us to do the same
+		// but now for simplicity let's bundle each task
+		case 1:
+			p.clearSecOAM()
+		case 257:
+			p.evalSprites()
+		case 321:
+			p.loadSprites()
+		}
+
+		if visibleCycle {
+			for i := range p.pOAM {
+				if p.pOAM[i].id == 64 {
+					continue
+				}
+
+				s := &p.pOAM[i]
+				xi := uint(x) - uint(s.xPos)
+				if xi < 8 {
+
+					bit := 8 - xi - 1
+
+					b0 := (s.lsbIndex >> bit) & 1
+					b1 := (s.msbIndex >> bit) & 1
+					p.fgIndex = b0 | (b1 << 1)
+					p.fgPriority = (s.attributes>>5)&1 == 0
+					p.fgPalette = s.attributes & 0x3
+
+					// non transparent pixel found so "accept" this sprite
+					if p.fgIndex != 0 {
+
+						if s.id == 0 && p.bgIndex > 0 && x != 255 {
+							p.regs[PPUSTATUS].set(statusSprite0Hit)
+						}
+
+						break
+					}
 				}
 			}
 		}
 	}
 
-	if p.scanLine > -1 && p.scanLine < 240 && p.cycle < 256 {
+	if visibleFrame && visibleCycle {
 
 		// what gets drawn based on transparency (index==0) and priority
 		if p.bgIndex == 0 && p.fgIndex == 0 {
@@ -292,207 +190,21 @@ func (p *Ppu) exec() {
 	}
 
 	p.cycle += 1
-	if p.cycle == 257 {
-		p.finalScroll = p.xScroll
-	}
 	if p.cycle > 340 {
 
 		p.scanLine += 1
 		p.cycle = 0
 
-		if p.scanLine == 241 {
-			p.raise(cpuIntNMI)
-		} else if p.scanLine == 242 {
-			p.nameTable = p.regs[PPUCTRL].val & 0x3
-		}
-
 		if p.scanLine > 260 {
 			p.scanLine = -1
+		}
+	} else if p.cycle == 1 {
+		if vBlankLn {
+			p.raise(cpuIntNMI)
+		} else if preRenderLn {
 			// may already be cleared as reading from PPSTATUS will do so
 			p.clear(cpuIntNMI)
+			p.regs[PPUSTATUS].clr(statusSpriteOverflow | statusSprite0Hit)
 		}
-	}
-}
-
-func (p *Ppu) drawPixel(x uint8, y uint8, c color.RGBA) {
-	if p.buffered && p.frameBuffer.frameIndex == 0 {
-		p.frameBuffer.buffer0[(240-1-uint16(y))*256+uint16(x)] = c
-	} else {
-		p.frameBuffer.buffer1[(240-1-uint16(y))*256+uint16(x)] = c
-	}
-}
-
-func (p *Ppu) loadSprites() {
-	_, spriteSizeY := p.getSpriteSize()
-	patternAddr := p.getSpritePattern()
-	for i := range p.sOAM {
-
-		p.pOAM[i] = p.sOAM[i]
-		s := &p.pOAM[i]
-
-		addr := uint16(0)
-		if spriteSizeY == 16 {
-			// taken from HydraNes, have not verified this
-			addr = ((uint16(s.tIndex) & 1) * p.getSpritePattern()) + ((uint16(s.tIndex) & (1 ^ 0xFFFF)) * 16)
-		} else {
-			addr = patternAddr + uint16(s.tIndex)*16
-		}
-
-		// calculate line inside sprite for the next scanLine
-		// edit: seems like sprites are already arranged like so, meaning we can use the current?
-		lSpY := (p.scanLine - int(s.yPos)) % int(spriteSizeY)
-
-		// vertical flip
-		if (s.attributes & 0x80) != 0 {
-			lSpY ^= int(spriteSizeY) - 1
-		}
-
-		addr += uint16(lSpY) + uint16(lSpY&8)
-
-		s.lsbIndex = p.busInt.read8(addr)
-		s.msbIndex = p.busInt.read8(addr + 8)
-
-		// horizontal flip
-		if (s.attributes & 0x40) != 0 {
-			s.lsbIndex = reverseByte(s.lsbIndex)
-			s.msbIndex = reverseByte(s.msbIndex)
-		}
-	}
-}
-
-func reverseByte(b uint8) uint8 {
-	return ((b & 0x01) << 7) | ((b & 0x02) << 5) |
-		((b & 0x04) << 3) | ((b & 0x08) << 1) |
-		((b & 0x10) >> 1) | ((b & 0x20) >> 3) |
-		((b & 0x40) >> 5) | ((b & 0x80) >> 7)
-}
-
-func (p *Ppu) evalSprites() {
-	spriteCount := 0
-	evalScan := p.scanLine
-	_, yLen := p.getSpriteSize()
-	for i := uint16(0); i < 64; i++ {
-
-		// 0 yPos, 1 index, 2 attr, 3 xPos => i*4
-		yPos := p.rOAM.read8(i * 4)
-		yPosEnd := uint16(yPos) + uint16(yLen)
-
-		// if the scanLine intersects the sprite, it's a "hit"
-		// copy sprite to the secondary OAM
-		if evalScan >= int(yPos) && evalScan < int(yPosEnd) {
-			p.sOAM[spriteCount].yPos = yPos
-			p.sOAM[spriteCount].tIndex = p.rOAM.read8(i*4 + 1)
-			p.sOAM[spriteCount].attributes = p.rOAM.read8(i*4 + 2)
-			p.sOAM[spriteCount].xPos = p.rOAM.read8(i*4 + 3)
-			p.sOAM[spriteCount].id = uint8(i)
-
-			spriteCount += 1
-			if spriteCount >= 8 {
-				p.regs[PPUSTATUS].set(statusSpriteOverflow)
-				break
-			}
-		}
-	}
-}
-
-func (p *Ppu) clearPrimOAM() {
-	for i := range p.pOAM {
-		// set back defaults
-		p.pOAM[i] = OamSprite{
-			yPos:       0xFF,
-			tIndex:     0xFF,
-			attributes: 0xFF,
-			xPos:       0xFF,
-			id:         64,
-			lsbIndex:   0x00,
-			msbIndex:   0x00,
-		}
-	}
-}
-
-func (p *Ppu) clearSecOAM() {
-	for i := range p.sOAM {
-		// set back defaults
-		p.sOAM[i] = OamSprite{
-			yPos:       0xFF,
-			tIndex:     0xFF,
-			attributes: 0xFF,
-			xPos:       0xFF,
-			id:         64,
-			lsbIndex:   0x00,
-			msbIndex:   0x00,
-		}
-	}
-}
-
-func (p *Ppu) tick() {
-	p.clock++
-	p.exec()
-}
-
-func (p *Ppu) ticks(nTicks int) {
-
-	for i := 0; i < nTicks; i++ {
-		p.tick()
-	}
-}
-
-// BusInt
-func (p *Ppu) read8(addr uint16) uint8 {
-	if addr < 0x4000 {
-		// incomplete decoding means 0x2000-0x2007 are mirrored every 8 bytes
-		addr = 0x2000 + addr%8
-	}
-
-	switch addr {
-	// PPU Status (PPUSTATUS) - RDONLY
-	case 0x2002:
-		return p.regs[PPUSTATUS].read()
-	// PPU OAM Data (OAMDATA)
-	case 0x2004:
-		return p.regs[OAMDATA].read()
-	// PPU Data (PPUDATA)
-	case 0x2007:
-		return p.regs[PPUDATA].read()
-	}
-
-	return 0
-}
-
-func (p *Ppu) write8(addr uint16, val uint8) {
-
-	p.setLastRegWrite(val)
-
-	if addr < 0x4000 {
-		// incomplete decoding means 0x2000-0x2007 are mirrored every 8 bytes
-		addr = 0x2000 + addr%8
-	}
-
-	switch addr {
-	// PPU Control (PPUCTRL) - WRONLY
-	case 0x2000:
-		p.regs[PPUCTRL].write(val)
-	// PPU Mask (PPUMASK) - WRONLY
-	case 0x2001:
-		p.regs[PPUMASK].write(val)
-	// PPU OAM Data (OAMADDR) - WRONLY
-	case 0x2003:
-		p.regs[OAMADDR].write(val)
-	// PPU OAM Data (OAMDATA)
-	case 0x2004:
-		p.regs[OAMDATA].write(val)
-	// PPU Scrolling (PPUSCROLL) - WRONLY
-	case 0x2005:
-		p.regs[PPUSCROLL].write(val)
-	// PPU Address (PPUADDR) - WRONLY
-	case 0x2006:
-		p.regs[PPUADDR].write(val)
-	// PPU Data (PPUDATA)
-	case 0x2007:
-		p.regs[PPUDATA].write(val)
-	// PPU OAM DMA (OAMDMA) - WRONLY
-	case 0x4014:
-		// handled by the dma engine
-		panic("OAMDMA should have gone to the dma engine!")
 	}
 }
