@@ -6,7 +6,7 @@ import (
 )
 
 func Test_newNes(t *testing.T) {
-	nes := NewNES(false, "")
+	nes := NewNES(Verbose(false))
 	if nes == nil {
 		t.Errorf("failed to get nes!")
 	}
@@ -49,7 +49,7 @@ func testCpuTest(nes *nes, t *testing.T, cpuTest cpuTest) {
 
 // should be able to generate the tests for similar fn's, ld*,st*
 func Test_newNes_RunOpTest(t *testing.T) {
-	nes := NewNES(false, "")
+	nes := NewNES(Verbose(false))
 	if nes == nil {
 		t.Fatalf("failed to get nes!")
 	}
@@ -169,7 +169,7 @@ func Test_newNes_RunOpTest(t *testing.T) {
 }
 
 func Test_JMP(t *testing.T) {
-	nes := NewNES(false, "")
+	nes := NewNES(Verbose(false))
 	if nes == nil {
 		t.Fatalf("failed to get nes!")
 	}
@@ -193,7 +193,7 @@ func Test_JMP(t *testing.T) {
 }
 
 func Test_LA(t *testing.T) {
-	nes := NewNES(false, "")
+	nes := NewNES(Verbose(false))
 	if nes == nil {
 		t.Fatalf("failed to get nes!")
 	}

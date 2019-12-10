@@ -1,17 +1,40 @@
 package main
 
-import gones "github.com/tiagolobocastro/gones/nes"
+import (
+	"flag"
+	"fmt"
+	"os"
+
+	gones "github.com/tiagolobocastro/gones/nes"
+)
+
+const defaultINesPath = `C:\Users\Tiago\Dropbox\nes\Donkey Kong Jr. (JU).nes`
+
+// const defaultINesPath = `C:\Users\Tiago\Dropbox\nes\Donkey Kong Jr. (JU).nes`
+// const defaultINesPath = `C:\Users\Tiago\Dropbox\nes\Super Mario Bros. (World).nes`
+// const defaultINesPath = `C:\Users\Tiago\Dropbox\nes\Donkey Kong (World) (Rev A).nes`
+
+func validINesPath(romPath string) error {
+
+	stat, err := os.Stat(romPath)
+	if err != nil {
+		return fmt.Errorf("iNes Rom file path (\"%v\") does not exist or is not valid", romPath)
+	} else if stat.IsDir() {
+		return fmt.Errorf("iNes Rom file path (\"%v\") points to a directory", romPath)
+	}
+	return nil
+}
 
 func main() {
-	//nes := gones.NewNES(false, "C:\\Users\\Tiago\\workspace\\nes-test-roms\\cpu_dummy_reads\\source\\hello_nes\\hello.nes")
-	// nes := gones.NewNES(false, "C:\\Users\\Tiago\\workspace\\nes-test-roms\\sprites\\sprites.nes")
-	//nes := gones.NewNES(false, "C:\\Users\\Tiago\\workspace\\nes-test-roms\\sprite_movement\\spritemovement.nes")
-	//nes := gones.NewNES(false, "C:\\Users\\Tiago\\workspace\\nes-test-roms\\background2\\background.nes")
-	//nes := gones.NewNES(false, "C:\\Users\\Tiago\\workspace\\nes-test-roms\\full_palette\\flowing_palette.nes")
-	//nes := gones.NewNES(false, "C:\\Users\\Tiago\\Downloads\\Donkey Kong (World) (Rev A).nes")
-	//nes := gones.NewNES(false, "C:\\Users\\Tiago\\workspace\\nes-test-roms\\controller\\controller.nes")
-	nes := gones.NewNES(false, "C:\\Users\\Tiago\\Downloads\\Super Mario Bros. (World).nes")
-	//nes := gones.NewNES(false, "C:\\Users\\Tiago\\Downloads\\Donkey Kong Jr. (JU).nes")
-	//nes := gones.NewNES(false, "C:\\Users\\Tiago\\workspace\\nes-test-roms\\scrolling\\scrolling1.nes")
-	nes.Run2()
+	romPath := flag.String("rom", defaultINesPath, "path to the iNes Rom file to run")
+	flag.Parse()
+
+	if err := validINesPath(*romPath); err != nil {
+		fmt.Printf("Failed to start GoNes, err=%v\n", err)
+		return
+	}
+
+	fmt.Printf("Starting GoNes with iNes Rom file: %s\n", *romPath)
+	nes := gones.NewNES(gones.CartPath(*romPath), gones.Verbose(false), gones.FreeRun(false))
+	nes.Run()
 }

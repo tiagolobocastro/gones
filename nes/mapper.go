@@ -1,7 +1,8 @@
 package gones
 
 const (
-	mapperNROM = iota
+	mapperNROM  = iota
+	mapperUnROM = 2
 )
 
 type Mapper interface {

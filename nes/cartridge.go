@@ -113,6 +113,8 @@ func (c *Cartridge) newCartMapper(mapper byte) Mapper {
 	switch mapper {
 	case mapperNROM:
 		return &MapperNROM{cart: c}
+	case mapperUnROM:
+		return &MapperNROM{cart: c}
 	default:
 		panic(fmt.Sprintf("mapper %v not supported!", mapper))
 	}

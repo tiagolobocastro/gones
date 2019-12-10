@@ -7,11 +7,11 @@ import (
 
 const nesBaseFrequency = 1789773
 
-func (n *nes) init(cartPath string) {
+func (n *nes) init() {
 	n.bus.init()
 
-	if n.cart.init(cartPath) != nil {
-		panic("ups...")
+	if err := n.cart.init(n.cartPath); err != nil {
+		panic(err)
 	}
 
 	n.ram.init(0x800)
@@ -82,13 +82,6 @@ func (n *nes) Step(seconds float64) {
 	}
 }
 
-func (n *nes) Run2() {
-	n.screen.run(false)
-	for {
-		time.Sleep(time.Second * 100)
-	}
-}
-
 func (n *nes) Test() {
 	for {
 		ticks := 1
@@ -107,9 +100,7 @@ func (n *nes) Test() {
 	}
 }
 
-func (n *nes) Run() {
-	n.screen.run(true)
-
+func (n *nes) runFree() {
 	for {
 		ticks := 1
 		if !n.dma.active() {
@@ -120,6 +111,18 @@ func (n *nes) Run() {
 		// 3 ppu ticks per 1 cpu
 		n.ppu.ticks(3 * ticks)
 		n.dma.ticks(ticks)
+	}
+}
+
+func (n *nes) Run() {
+
+	n.screen.run(n.freeRun)
+	if n.freeRun == true {
+		n.runFree()
+	} else {
+		for {
+			time.Sleep(time.Second * 100)
+		}
 	}
 }
 
@@ -136,8 +139,13 @@ func (n *nes) resetRequest() {
 	n.resetRq = true
 }
 
-func NewNES(verbose bool, cart string) *nes {
-	nes := nes{verbose: verbose}
-	nes.init(cart)
-	return &nes
+func NewNES(options ...func(*nes) error) *nes {
+	nes := &nes{}
+
+	if err := nes.setOptions(options...); err != nil {
+		panic(err)
+	}
+
+	nes.init()
+	return nes
 }

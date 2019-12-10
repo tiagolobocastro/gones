@@ -108,8 +108,12 @@ type nes struct {
 
 	screen screen
 
-	verbose bool
 	resetRq bool
+
+	// Options
+	verbose  bool
+	cartPath string
+	freeRun  bool
 }
 
 const (
