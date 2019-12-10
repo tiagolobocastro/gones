@@ -44,11 +44,11 @@ func (c *Cartridge) init(cartPath string) error {
 	c.chr = new(rom)
 	c.ram = new(ram)
 
-	if cartPath == "" {
+	if c.cart == "" {
 		return c.defaultInit()
 	}
 
-	file, err := os.Open(cartPath)
+	file, err := os.Open(c.cart)
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func (c *Cartridge) init(cartPath string) error {
 	}
 
 	if header.NESMagic != NESMagicConstant {
-		return errors.New("that's a muggle iNES")
+		return errors.New("rom path points to a muggle iNES file (failed to find the magic number)")
 	}
 
 	mapper1 := header.Flags6 >> 4

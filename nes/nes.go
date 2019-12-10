@@ -11,7 +11,7 @@ func (n *nes) init() {
 	n.bus.init()
 
 	if err := n.cart.init(n.cartPath); err != nil {
-		panic(err)
+		log.Panicf("Failed to initialise the cartridge, err=%v", err)
 	}
 
 	n.ram.init(0x800)
