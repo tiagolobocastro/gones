@@ -13,9 +13,6 @@ const (
 	screenYHeight    = frameYHeight * screenFrameRatio
 )
 
-type apu struct {
-}
-
 type register struct {
 	val uint8
 
@@ -104,6 +101,7 @@ type nes struct {
 	ppu  Ppu
 	vRam ram
 	dma  dma
+	apu  Apu
 	ctrl controllers
 
 	screen screen
@@ -120,6 +118,7 @@ const (
 	MapCPUId = iota
 	MapPPUId
 	MapDMAId
+	MapAPUId
 )
 
 type iInterrupt interface {

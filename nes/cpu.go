@@ -55,8 +55,7 @@ type Cpu struct {
 
 	curr Context
 
-	rg  registers
-	apu apu
+	rg registers
 
 	clk      int
 	clkExtra int

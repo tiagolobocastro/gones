@@ -23,6 +23,7 @@ func (n *nes) init() {
 	n.cpu.init(n.bus.getBusInt(MapCPUId), n.verbose)
 	n.ppu.init(n.bus.getBusInt(MapPPUId), n.verbose, &n.cpu, &n.screen.framebuffer)
 	n.dma.init(n.bus.getBusInt(MapDMAId))
+	n.apu.init(n.bus.getBusInt(MapAPUId), n.verbose)
 
 	n.bus.connect(MapCPUId, &cpuMapper{n})
 	n.bus.connect(MapPPUId, &ppuMapper{n})
@@ -69,6 +70,10 @@ func (n *nes) Step(seconds float64) {
 		// 3 ppu ticks per 1 cpu
 		n.ppu.ticks(3 * ticks)
 		n.dma.ticks(ticks)
+
+		// since we are more sensitive to sound
+		// so we might have to replace the cpu as the "tick master"
+		n.apu.ticks(ticks)
 
 		runCycles -= ticks
 		// use this to step a whole frame at a time
@@ -131,6 +136,7 @@ func (n *nes) reset() {
 	n.ppu.reset()
 	n.dma.reset()
 	n.cpu.reset()
+	n.apu.reset()
 
 	n.resetRq = false
 }

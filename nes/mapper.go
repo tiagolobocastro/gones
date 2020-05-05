@@ -77,18 +77,21 @@ func (m *cpuMapper) write8(addr uint16, val uint8) {
 	case addr < 0x4000:
 		m.nes.ppu.write8(addr, val)
 
+	case addr < 0x4008:
+		m.nes.apu.write8(addr, val)
+
 	case addr == 0x4014:
 		m.nes.dma.write8(addr, val)
 
 	case addr < 0x4016:
-		// APU and I-O
+		// I-O
 		// panic("address range not implemented!")
 	case addr < 0x4018:
 		// Controller
 		m.nes.ctrl.write8(addr, val)
 	case addr < 0x4020:
 		// APU
-		panic("address range not implemented!")
+		//panic("address range not implemented!")
 
 	default:
 		panic("cannot write to cart!")
@@ -159,4 +162,12 @@ func (m *ppuMapper) write8(addr uint16, val uint8) {
 	case addr < 0x4000:
 		m.nes.ppu.palette.write8(addr%32, val)
 	}
+}
+
+// APU
+// Sound
+// Could also be used to keep track of time?
+// Does the apu need any bus access??
+type apuMapper struct {
+	*nes
 }

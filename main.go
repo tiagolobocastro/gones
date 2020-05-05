@@ -8,10 +8,10 @@ import (
 	gones "github.com/tiagolobocastro/gones/nes"
 )
 
-const defaultINesPath = `C:\Users\Tiago\Dropbox\nes\Donkey Kong Jr. (JU).nes`
+const defaultINesPath = `C:\Users\Tiago\Workspace\nes-test-roms\test\n65\demo.nes`
 
 // const defaultINesPath = `C:\Users\Tiago\Dropbox\nes\Donkey Kong Jr. (JU).nes`
-// const defaultINesPath = `C:\Users\Tiago\Dropbox\nes\Super Mario Bros. (World).nes`
+//const defaultINesPath = `C:\Users\Tiago\Dropbox\nes\Super Mario Bros. (World).nes`
 // const defaultINesPath = `C:\Users\Tiago\Dropbox\nes\Donkey Kong (World) (Rev A).nes`
 
 func validINesPath(romPath string) error {
