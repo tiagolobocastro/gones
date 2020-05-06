@@ -7,26 +7,30 @@ import (
 	"time"
 )
 
-type Speaker struct {
+type SpeakerBeep struct {
 	sampleChan chan float64
 	sampleRate beep.SampleRate
 
 	doOnce sync.Once
 }
 
-func (s *Speaker) init() {
+func (s *SpeakerBeep) init() {
 	s.doOnce.Do(func() {
-		s.sampleRate = beep.SampleRate(44100)
+		s.sampleRate = beep.SampleRate(44744)
 		s.sampleChan = make(chan float64, s.sampleRate.N(time.Second/10))
 
 		speaker.Init(s.sampleRate, s.sampleRate.N(time.Second/10))
 		speaker.Play(s.Stream())
+
+		// sound issue with callback lagging behind!
+		// looks like we're sampling at slightly above the 44k100
+		// which might explain this
+		// this dirty hack seems to improve things a bit...
+		s.sampleRate = beep.SampleRate(44100)
 	})
 }
 
-func (s *Speaker) Stream() beep.Streamer {
-	//step :=  1 / float64(samplingRate)
-	//stepi := 0.0
+func (s *SpeakerBeep) Stream() beep.Streamer {
 	return beep.StreamerFunc(func(samples [][2]float64) (n int, ok bool) {
 		ln := len(samples)
 		sample := 0.0
@@ -34,27 +38,7 @@ func (s *Speaker) Stream() beep.Streamer {
 			sample = <-s.sampleChan
 			samples[i][0] = sample
 			samples[i][1] = sample
-			//fmt.Printf("%d\n", uint(sample))
 		}
 		return ln, true
-		//nSamples := len(samples)
-		//for i := 0; i < nSamples; i++ {
-		//
-		//	if stepi > (0.5 / 220.0) {
-		//
-		//		samples[i][0] = 0.2
-		//		samples[i][1] = 0.2
-		//	} else {
-		//
-		//		samples[i][0] = 0.0
-		//		samples[i][1] = 0.0
-		//	}
-		//	stepi += step
-		//
-		//	if stepi > (1.0 / 220.0) {
-		//		stepi = 0.0
-		//	}
-		//}
-		//return nSamples, true
 	})
 }

@@ -3,6 +3,7 @@ package gones
 import (
 	"fmt"
 	"log"
+	"time"
 )
 
 const (
@@ -25,15 +26,21 @@ type Apu struct {
 	clock   uint
 	verbose bool
 
-	speaker SpeakerPort
+	speaker   SpeakerBeep
+	startTime time.Time
+	samples   uint64
 }
 
 func (a *Apu) AddSample(val float64) {
 	select {
 	case a.speaker.sampleChan <- val:
 	default:
-		fmt.Printf("The speaker is lagging behind!")
+		secs := time.Since(a.startTime).Seconds()
+		sps := a.samples / uint64(secs)
+		fmt.Printf("%d and %v: %d Hz\n", a.samples, secs, sps)
 	}
+
+	a.samples++
 }
 
 func (a *Apu) reset() {
@@ -46,6 +53,9 @@ func (a *Apu) init(busInt busExtInt, verbose bool) {
 	a.pulse2.init(false, a)
 
 	a.speaker.init()
+
+	a.startTime = time.Now()
+	a.samples = 0
 }
 
 func (a *Apu) ticks(nTicks int) {
