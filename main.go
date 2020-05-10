@@ -29,6 +29,10 @@ func main() {
 	romPath := flag.String("rom", defaultINesPath, "path to the iNes Rom file to run")
 	flag.Parse()
 
+	if len(os.Args) == 2 {
+		*romPath = os.Args[1]
+	}
+
 	if err := validINesPath(*romPath); err != nil {
 		fmt.Printf("Failed to start GoNes, err=%v\n", err)
 		return

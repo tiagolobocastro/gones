@@ -20,7 +20,7 @@ func (s *SpeakerPort) init() {
 		chk(err)
 		p := portaudio.HighLatencyParameters(nil, h.DefaultOutputDevice)
 		p.Output.Channels = 1
-		s.stream, err = portaudio.OpenStream(p, s.ProcessAudio)
+		s.stream, err = portaudio.OpenStream(p, s.processAudio)
 		chk(err)
 		s.sampleRate = int(p.SampleRate)
 		s.sampleChan = make(chan float64, s.sampleRate)
@@ -28,7 +28,7 @@ func (s *SpeakerPort) init() {
 	})
 }
 
-func (s *SpeakerPort) ProcessAudio(out []float32) {
+func (s *SpeakerPort) processAudio(out []float32) {
 	sample := float32(0.0)
 	for i := range out {
 		select {
@@ -44,4 +44,8 @@ func chk(err error) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (s *SpeakerPort) SampleRate() int {
+	return s.sampleRate
 }

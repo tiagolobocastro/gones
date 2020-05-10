@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-const nesBaseFrequency = 1789773
+const NesBaseFrequency = 1789773
 
 func (n *nes) init() {
 	n.bus.init()
@@ -54,7 +54,7 @@ func (n *nes) stats() {
 }
 
 func (n *nes) Step(seconds float64) {
-	cyclesPerSecond := float64(nesBaseFrequency)
+	cyclesPerSecond := float64(NesBaseFrequency)
 	cyclesPerSecond *= seconds
 	runCycles := int(cyclesPerSecond)
 

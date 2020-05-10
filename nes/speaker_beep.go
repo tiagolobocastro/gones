@@ -26,19 +26,22 @@ func (s *SpeakerBeep) init() {
 		// looks like we're sampling at slightly above the 44k100
 		// which might explain this
 		// this dirty hack seems to improve things a bit...
-		s.sampleRate = beep.SampleRate(44100)
+		//s.sampleRate = beep.sampleRate(44100)
 	})
 }
 
 func (s *SpeakerBeep) Stream() beep.Streamer {
 	return beep.StreamerFunc(func(samples [][2]float64) (n int, ok bool) {
 		ln := len(samples)
-		sample := 0.0
 		for i := 0; i < ln; i++ {
-			sample = <-s.sampleChan
+			sample := <-s.sampleChan
 			samples[i][0] = sample
 			samples[i][1] = sample
 		}
 		return ln, true
 	})
+}
+
+func (s *SpeakerBeep) SampleRate() beep.SampleRate {
+	return s.sampleRate
 }
