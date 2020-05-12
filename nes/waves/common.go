@@ -57,28 +57,86 @@ type Sequencer struct {
 
 	timer  uint16 // 11bit timer
 	reload uint16
+
+	table  [][]uint8
+	width  uint8
+	row    uint8
+	column uint8
 }
 
+func (s *Sequencer) init(table [][]uint8) {
+	s.table = table
+	s.width = uint8(len(table[0]))
+	s.column = 0
+	s.row = 0
+
+	s.reset()
+}
 func (s *Sequencer) reset() {
 	s.clock = 0
 	s.timer = 0
 	s.reload = 0
+}
+
+func (s *Sequencer) selectRow(row uint8) {
+	s.row = row
 }
 func (s *Sequencer) resetLow(value uint8) {
 	s.reload = (s.reload & 0x700) | uint16(value)
 }
 func (s *Sequencer) resetHigh(value uint8) {
 	s.reload = (s.reload & 0xFF) | (uint16(value) << 8)
+	s.column = 0
 }
 
-func (s *Sequencer) tick() bool {
+func (s *Sequencer) tick() {
 	s.clock++
 
 	if s.timer > 0 {
 		s.timer--
-		return false
 	} else {
 		s.timer = s.reload
-		return true
+		s.column = (s.column + 1) % s.width
+	}
+}
+
+func (s *Sequencer) value() uint8 {
+	return s.table[s.row][s.column]
+}
+
+// Each volume envelope unit contains the following:
+// start flag, divider, and decay level counter.
+type Envelope struct {
+	start   bool
+	loop    bool
+	divider uint8
+	reload  uint8
+	decay   uint8
+}
+
+func (e *Envelope) reset() {
+	e.start = false
+	e.loop = false
+	e.divider = 0
+	e.reload = 0
+	e.decay = 0
+}
+
+func (e *Envelope) tick() {
+	if !e.start {
+		if e.divider == 0 {
+			e.divider = e.reload
+			if e.decay > 0 {
+				e.decay--
+			} else if e.loop {
+				e.decay = 15
+			}
+		} else {
+			e.divider--
+		}
+	} else {
+		e.start = false
+		e.decay = 15
+		e.divider = e.reload
 	}
 }

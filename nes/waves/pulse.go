@@ -2,7 +2,6 @@ package waves
 
 type Pulse struct {
 	dutyCycleMode  uint8 // 0,1,2,3
-	dutyIndex      uint8 // 0..7
 	lenCounterHalt bool  // 1 means go forever
 
 	constVolume  bool // these two are         1
@@ -18,6 +17,7 @@ type Pulse struct {
 
 	sequencer Sequencer
 	duration  DurationCounter
+	envelope  Envelope
 
 	clock uint64
 }
@@ -25,17 +25,14 @@ type Pulse struct {
 func (p *Pulse) Init(pulseOne bool) {
 	p.pulseOne = pulseOne
 	p.dutyCycleMode = 0
-	p.dutyIndex = 0
 	p.clock = 0
 	p.duration.reset()
-	p.sequencer.reset()
+	p.sequencer.init(p.dutyTable())
+	p.envelope.reset()
 }
 func (p *Pulse) Tick() {
 	p.clock++
-
-	if p.sequencer.tick() {
-		p.dutyIndex = (p.dutyIndex + 1) % 8
-	}
+	p.sequencer.tick()
 }
 
 func (p *Pulse) dutyTable() [][]uint8 {
@@ -54,13 +51,17 @@ func (p *Pulse) Write8(addr uint16, val uint8) {
 	switch addr {
 	// duty, len counter halt, const volume or envelope
 	case 0x4000:
-		p.dutyCycleMode = (val & 0xC0) >> 6
+		dutyCycleMode := (val & 0xC0) >> 6
+		p.sequencer.selectRow(dutyCycleMode)
 		p.duration.set(!((val & 0x20) == 0))
+
+		p.volume = val & 0xF
+		p.envelope.reload = p.volume + 1
 		if p.constVolume = true; (val & 0x10) == 0 {
 			p.constVolume = false
+			p.envelope.start = true
+			p.envelope.loop = p.duration.halt
 		}
-		p.volume = val & 0xF
-		p.envelopeDivP = val & 0xF
 		// sweep
 	case 0x4001:
 		//fmt.Printf("Sweep not supported!\n")
@@ -70,7 +71,6 @@ func (p *Pulse) Write8(addr uint16, val uint8) {
 		// The sequencer is immediately restarted at the first value of the
 		// current sequence.
 		p.sequencer.resetHigh(val & 0x7)
-		p.dutyIndex = 0
 
 		// The envelope is also restarted. The period divider is not reset
 		p.duration.reload((val & 0xF8) >> 3)
@@ -78,7 +78,7 @@ func (p *Pulse) Write8(addr uint16, val uint8) {
 }
 
 func (p *Pulse) Sample() float64 {
-	output := p.dutyTable()[p.dutyCycleMode][p.dutyIndex]
+	output := p.sequencer.value()
 
 	// since we can't perfectly achieve the right sampling freq
 	// maybe let's try using a more "perfect" sampling freq
@@ -86,14 +86,18 @@ func (p *Pulse) Sample() float64 {
 
 	if p.duration.counter != 0 && output > 0 &&
 		p.sequencer.reload >= 8 && p.sequencer.reload < 0x7FF {
-		return float64(p.volume)
+		if p.constVolume {
+			return float64(p.volume)
+		} else {
+			return float64(p.envelope.decay)
+		}
 	} else {
 		return 0.0
 	}
 }
 
 func (p *Pulse) QuarterFrameTick() {
-	p.envelopeTick()
+	p.envelope.tick()
 }
 func (p *Pulse) HalfFrameTick() {
 	p.duration.tick()

@@ -97,6 +97,8 @@ func (a *Apu) triangleLinearTick() {
 }
 func (a *Apu) quarterFrameTick() {
 	a.triangleLinearTick()
+	a.pulse1.QuarterFrameTick()
+	a.pulse2.QuarterFrameTick()
 }
 
 func (a *Apu) halfFrameTick() {
