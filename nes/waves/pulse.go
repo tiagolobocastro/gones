@@ -18,8 +18,17 @@ type Pulse struct {
 	sequencer Sequencer
 	duration  DurationCounter
 	envelope  Envelope
+	sweep     Sweep
 
-	clock uint64
+	clock  uint64
+	period uint16
+}
+
+func (p *Pulse) setPeriod(period uint16) {
+	p.period = period
+}
+func (p *Pulse) getPeriod() uint16 {
+	return p.period
 }
 
 func (p *Pulse) Init(pulseOne bool) {
@@ -27,8 +36,9 @@ func (p *Pulse) Init(pulseOne bool) {
 	p.dutyCycleMode = 0
 	p.clock = 0
 	p.duration.reset()
-	p.sequencer.init(p.dutyTable())
+	p.sequencer.init(p.dutyTable(), p)
 	p.envelope.reset()
+	p.sweep.init(p)
 }
 func (p *Pulse) Tick() {
 	p.clock++
@@ -55,16 +65,19 @@ func (p *Pulse) Write8(addr uint16, val uint8) {
 		p.sequencer.selectRow(dutyCycleMode)
 		p.duration.set(!((val & 0x20) == 0))
 
+		p.envelope.start = true
 		p.volume = val & 0xF
-		p.envelope.reload = p.volume + 1
 		if p.constVolume = true; (val & 0x10) == 0 {
 			p.constVolume = false
-			p.envelope.start = true
 			p.envelope.loop = p.duration.halt
+			p.envelope.reload = p.volume
 		}
-		// sweep
 	case 0x4001:
-		//fmt.Printf("Sweep not supported!\n")
+		p.sweep.enabled = (val & 0x80) != 0
+		p.sweep.dividerReload = (val & 0x70) >> 4
+		p.sweep.negate = (val & 0x8) != 0
+		p.sweep.shift = val & 0x7
+		p.sweep.reload = true
 	case 0x4002:
 		p.sequencer.resetLow(val)
 	case 0x4003:
@@ -84,8 +97,9 @@ func (p *Pulse) Sample() float64 {
 	// maybe let's try using a more "perfect" sampling freq
 	// and then using a filter
 
-	if p.duration.counter != 0 && output > 0 &&
-		p.sequencer.reload >= 8 && p.sequencer.reload < 0x7FF {
+	if output > 0 &&
+		!p.duration.mute() &&
+		!p.sweep.mute() {
 		if p.constVolume {
 			return float64(p.volume)
 		} else {
@@ -101,10 +115,5 @@ func (p *Pulse) QuarterFrameTick() {
 }
 func (p *Pulse) HalfFrameTick() {
 	p.duration.tick()
-	p.sweepUnitTick()
-}
-
-func (p *Pulse) sweepUnitTick() {
-}
-func (p *Pulse) envelopeTick() {
+	p.sweep.tick()
 }

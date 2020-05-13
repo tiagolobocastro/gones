@@ -159,7 +159,7 @@ func (a *Apu) write8(addr uint16, val uint8) {
 
 func (a *Apu) mixPulses(pulse1 float64, pulse2 float64) float64 {
 	//pulseOut := 95.88 / ((8128 / (pulse1 + pulse2)) + 100)
-	//pulseOut := 0.00752 * (pulse1 + pulse2)
-	pulseOut := NesApuVolumeGain * (pulse1 + pulse2)
+	pulseOut := 0.00752 * (pulse1 + pulse2)
+	//pulseOut := NesApuVolumeGain * (pulse1 + pulse2)
 	return pulseOut
 }
