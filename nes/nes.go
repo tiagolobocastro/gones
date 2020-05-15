@@ -23,7 +23,7 @@ func (n *nes) init() {
 	n.cpu.init(n.bus.getBusInt(MapCPUId), n.verbose)
 	n.ppu.init(n.bus.getBusInt(MapPPUId), n.verbose, &n.cpu, &n.screen.framebuffer)
 	n.dma.init(n.bus.getBusInt(MapDMAId))
-	n.apu.init(n.bus.getBusInt(MapAPUId), n.verbose)
+	n.apu.init(n.bus.getBusInt(MapAPUId), n.verbose, n.audioLog, n.audioLib)
 
 	n.bus.connect(MapCPUId, &cpuMapper{n})
 	n.bus.connect(MapPPUId, &ppuMapper{n})

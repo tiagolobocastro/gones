@@ -23,6 +23,14 @@ func (n *nes) setFreeRun(freeRun bool) error {
 	n.freeRun = freeRun
 	return nil
 }
+func (n *nes) setAudioLibrary(name AudioLib) error {
+	n.audioLib = name
+	return nil
+}
+func (n *nes) setAudioLogging(log bool) error {
+	n.audioLog = log
+	return nil
+}
 
 func CartPath(path string) func(n *nes) error {
 	return func(n *nes) error {
@@ -39,5 +47,17 @@ func Verbose(verbose bool) func(n *nes) error {
 func FreeRun(freeRun bool) func(n *nes) error {
 	return func(n *nes) error {
 		return n.setFreeRun(freeRun)
+	}
+}
+
+func AudioLibrary(name string) func(n *nes) error {
+	return func(n *nes) error {
+		return n.setAudioLibrary(AudioLib(name))
+	}
+}
+
+func AudioLogging(log bool) func(n *nes) error {
+	return func(n *nes) error {
+		return n.setAudioLogging(log)
 	}
 }

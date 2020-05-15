@@ -12,6 +12,18 @@ const NesApuFrequency = NesBaseFrequency / 2
 const NesApuFrameCycles = 7457
 const NesApuVolumeGain = 0.012
 
+type AudioLib string
+
+const (
+	Beep      = "beep"
+	PortAudio = "portaudio"
+)
+
+type AudioSpeaker interface {
+	Init() chan float64
+	SampleRate() int
+}
+
 type Apu struct {
 	pulse1 waves.Pulse
 	pulse2 waves.Pulse
@@ -23,21 +35,40 @@ type Apu struct {
 	frameStep    uint
 	frameMode    uint
 
-	speaker   SpeakerBeep
-	startTime time.Time
-	samples   uint64
+	logAudio     bool
+	samples      uint
+	startTime    time.Time
+	samplesTotal uint
+
+	audioLib     AudioLib
+	speaker      AudioSpeaker
+	samplingChan chan float64
+
+	sampleTicks       float64
+	sampleTargetTicks float64
 }
 
 func (a *Apu) reset() {
-	a.init(nil, a.verbose)
+	a.init(nil, a.verbose, a.logAudio, a.audioLib)
 }
-func (a *Apu) init(busInt busExtInt, verbose bool) {
+func (a *Apu) init(busInt busExtInt, verbose bool, logAudio bool, audioLib AudioLib) {
 	a.verbose = verbose
 
 	a.pulse1.Init(true)
 	a.pulse2.Init(false)
 
-	a.speaker.init()
+	a.logAudio = logAudio
+	a.audioLib = audioLib
+	switch a.audioLib {
+	case Beep:
+		a.speaker = new(SpeakerBeep)
+	case PortAudio:
+		a.speaker = new(SpeakerPort)
+	}
+
+	a.samplingChan = a.speaker.Init()
+	a.sampleTicks = float64(NesBaseFrequency) / float64(a.speaker.SampleRate())
+	a.sampleTargetTicks = a.sampleTicks
 
 	a.startTime = time.Now()
 	a.samples = 0
@@ -48,19 +79,30 @@ func (a *Apu) init(busInt busExtInt, verbose bool) {
 	a.frameMode = 0
 }
 
-func (a *Apu) SamplingRate() float64 {
-	return float64(NesBaseFrequency) / float64(a.speaker.SampleRate())
-}
 func (a *Apu) addSample(val float64) {
 	select {
-	case a.speaker.sampleChan <- val:
+	case a.samplingChan <- val:
 	default:
-		secs := time.Since(a.startTime).Seconds()
-		sps := a.samples / uint64(secs)
-		fmt.Printf("%d and %v: %d Hz\n", a.samples, secs, sps)
+		fmt.Printf("The Audio Speaker is falling behind the audio samples!")
 	}
 
+	a.logSampling()
+}
+func (a *Apu) logSampling() {
 	a.samples++
+	a.samplesTotal++
+
+	if !a.logAudio {
+		return
+	}
+
+	if (a.samples % uint(a.speaker.SampleRate())) == 0 {
+		sps := float64(a.samples) / time.Since(a.startTime).Seconds()
+		a.startTime = time.Now()
+		hz := NesBaseFrequency / (float64(a.clock) / float64(a.samplesTotal))
+		a.samples = 0
+		fmt.Printf("Sampling: Real %v Hz, Apu %v Hz\n", sps, hz)
+	}
 }
 
 func (a *Apu) ticks(nTicks int) {
@@ -81,13 +123,14 @@ func (a *Apu) tick() {
 		// todo: change pulse to use CPU cycles instead!
 		a.pulse1.Tick()
 		a.pulse2.Tick()
-
-		a.sample()
 	}
+	a.sample()
 }
 
 func (a *Apu) sample() {
-	if (a.clock % uint(a.SamplingRate())) == 0 {
+	if a.clock > uint(a.sampleTargetTicks) {
+		a.sampleTargetTicks += a.sampleTicks
+
 		mix := a.mixPulses(a.pulse1.Sample(), a.pulse2.Sample())
 		a.addSample(mix)
 	}

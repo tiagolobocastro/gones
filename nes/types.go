@@ -112,6 +112,8 @@ type nes struct {
 	verbose  bool
 	cartPath string
 	freeRun  bool
+	audioLib AudioLib
+	audioLog bool
 }
 
 const (

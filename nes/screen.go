@@ -140,7 +140,7 @@ func (s *screen) updateFpsTitle() {
 		frames := s.framebuffer.frames - s.fpsLastFrame
 		s.fpsLastFrame = s.framebuffer.frames
 
-		s.window.SetTitle(fmt.Sprintf("%s | FPS: %d", "GoNes", frames))
+		s.window.SetTitle(fmt.Sprintf("GoNes | FPS: %d", frames))
 	default:
 	}
 }

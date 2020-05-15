@@ -8,13 +8,9 @@ import (
 	gones "github.com/tiagolobocastro/gones/nes"
 )
 
-const defaultINesPath = `C:\Users\Tiago\Workspace\nes-test-roms\test\n65\demo.nes`
+const defaultAudioLibrary = gones.Beep
 
-// const defaultINesPath = `C:\Users\Tiago\Dropbox\nes\Donkey Kong Jr. (JU).nes`
-//const defaultINesPath = `C:\Users\Tiago\Dropbox\nes\Super Mario Bros. (World).nes`
-// const defaultINesPath = `C:\Users\Tiago\Dropbox\nes\Donkey Kong (World) (Rev A).nes`
-
-func validINesPath(romPath string) error {
+func validateINesPath(romPath string) error {
 
 	stat, err := os.Stat(romPath)
 	if err != nil {
@@ -26,19 +22,29 @@ func validINesPath(romPath string) error {
 }
 
 func main() {
-	romPath := flag.String("rom", defaultINesPath, "path to the iNes Rom file to run")
+	romPath := flag.String("rom", "", "path to the iNes Rom file to run")
+	audioLib := flag.String("speaker", defaultAudioLibrary, "portaudio or beep speaker engine")
+	logAudio := flag.Bool("logAudio", false, "log audio sampling average every second")
+
 	flag.Parse()
 
-	if len(os.Args) == 2 {
+	if len(os.Args) > 1 && *romPath == "" {
 		*romPath = os.Args[1]
 	}
 
-	if err := validINesPath(*romPath); err != nil {
+	if err := validateINesPath(*romPath); err != nil {
 		fmt.Printf("Failed to start GoNes, err=%v\n", err)
 		return
 	}
 
 	fmt.Printf("Starting GoNes with iNes Rom file: %s\n", *romPath)
-	nes := gones.NewNES(gones.CartPath(*romPath), gones.Verbose(false), gones.FreeRun(false))
+	nes := gones.NewNES(
+		gones.CartPath(*romPath),
+		gones.Verbose(false),
+		gones.FreeRun(false),
+		gones.AudioLibrary(*audioLib),
+		gones.AudioLogging(*logAudio),
+	)
+
 	nes.Run()
 }
