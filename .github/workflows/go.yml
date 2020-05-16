@@ -44,3 +44,13 @@ jobs:
 
     - name: Test
       run: go test -v ./nes
+    
+    - name: Artifacts
+      run: |
+        mkdir -p bin/ubuntu/
+        cp gones bin/ubuntu/
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: gones
+        path: ./bin
