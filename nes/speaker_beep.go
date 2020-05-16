@@ -23,9 +23,7 @@ func (s *SpeakerBeep) Init() {
 		speaker.Play(s.stream())
 	})
 }
-func (s *SpeakerBeep) Reset() {
-	speaker.Clear()
-}
+func (s *SpeakerBeep) Reset() {}
 func (s *SpeakerBeep) Stop() {
 	if s.sampleRate != 0 {
 		speaker.Close()
