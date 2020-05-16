@@ -14,7 +14,7 @@ type SpeakerBeep struct {
 	doOnce sync.Once
 }
 
-func (s *SpeakerBeep) Init() chan float64 {
+func (s *SpeakerBeep) Init() {
 	s.doOnce.Do(func() {
 		s.sampleRate = beep.SampleRate(44100)
 		s.sampleChan = make(chan float64, s.sampleRate.N(time.Second/10))
@@ -22,7 +22,26 @@ func (s *SpeakerBeep) Init() chan float64 {
 		speaker.Init(s.sampleRate, s.sampleRate.N(time.Second/10))
 		speaker.Play(s.stream())
 	})
-	return s.sampleChan
+}
+func (s *SpeakerBeep) Reset() {
+	speaker.Clear()
+}
+func (s *SpeakerBeep) Stop() {
+	if s.sampleRate != 0 {
+		speaker.Close()
+	}
+}
+
+func (s *SpeakerBeep) Sample(sample float64) bool {
+	select {
+	case s.sampleChan <- sample:
+		return true
+	default:
+		return false
+	}
+}
+func (s *SpeakerBeep) SampleRate() int {
+	return int(s.sampleRate)
 }
 
 func (s *SpeakerBeep) stream() beep.Streamer {
@@ -35,8 +54,4 @@ func (s *SpeakerBeep) stream() beep.Streamer {
 		}
 		return ln, true
 	})
-}
-
-func (s *SpeakerBeep) SampleRate() int {
-	return int(s.sampleRate)
 }

@@ -131,13 +131,33 @@ type iInterrupt interface {
 type AudioLib string
 
 const (
+	Nil       = "nil"
 	Beep      = "beep"
 	PortAudio = "portaudio"
 )
 
 type AudioSpeaker interface {
-	Init() chan float64
+	Init()
+	Reset()
+	Stop()
+	Sample(float64) bool
 	SampleRate() int
+}
+
+func NewSpeaker(lib AudioLib) AudioSpeaker {
+	var speaker AudioSpeaker
+	switch lib {
+	case Nil:
+		speaker = new(SpeakerNil)
+	case Beep:
+		speaker = new(SpeakerBeep)
+	case PortAudio:
+		speaker = new(SpeakerPort)
+	default:
+		panic("Unknown speaker type!")
+	}
+	speaker.Init()
+	return speaker
 }
 
 const NesBaseFrequency = 1789773

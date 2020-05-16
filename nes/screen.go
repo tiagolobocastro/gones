@@ -125,7 +125,7 @@ func (s *screen) updateControllers() {
 	}
 
 	if s.window.Pressed(pixelgl.KeyLeftControl) && s.window.Pressed(pixelgl.KeyR) {
-		s.nes.resetRequest()
+		s.nes.Reset()
 		onePressed = true
 	}
 

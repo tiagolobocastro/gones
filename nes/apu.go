@@ -14,34 +14,39 @@ type Apu struct {
 
 	clock   uint
 	verbose bool
+	enabled bool
 
 	frameCounter uint
 	frameStep    uint
 	frameMode    uint
 
-	logAudio     bool
-	samples      uint
-	startTime    time.Time
-	samplesTotal uint
+	logAudio      bool
+	samples       uint
+	sampleLogTime time.Time
+	samplesTotal  uint
 
-	audioLib     AudioLib
-	speaker      AudioSpeaker
-	samplingChan chan float64
+	audioLib AudioLib
+	speaker  AudioSpeaker
 
 	sampleTicks       float64
 	sampleTargetTicks float64
 }
 
 func (a *Apu) reset() {
+	if !a.enabled {
+		return
+	}
+
 	a.pulse1.Init(true)
 	a.pulse2.Init(false)
 
-	a.samplingChan = a.speaker.Init()
+	a.speaker.Reset()
 	a.sampleTicks = float64(NesBaseFrequency) / float64(a.speaker.SampleRate())
 	a.sampleTargetTicks = a.sampleTicks
 
-	a.startTime = time.Now()
+	a.sampleLogTime = time.Now()
 	a.samples = 0
+	a.samplesTotal = 0
 
 	a.clock = 0
 	a.frameCounter = 0
@@ -52,23 +57,21 @@ func (a *Apu) init(busInt busExtInt, verbose bool, logAudio bool, audioLib Audio
 	a.verbose = verbose
 	a.logAudio = logAudio
 	a.audioLib = audioLib
-	switch a.audioLib {
-	case Beep:
-		a.speaker = new(SpeakerBeep)
-	case PortAudio:
-		a.speaker = new(SpeakerPort)
-	}
+	a.enabled = true
+	a.speaker = NewSpeaker(a.audioLib)
 
 	a.reset()
 }
+func (a *Apu) Stop() {
+	a.reset()
+	a.enabled = false
+	a.speaker.Stop()
+}
 
 func (a *Apu) addSample(val float64) {
-	select {
-	case a.samplingChan <- val:
-	default:
+	if !a.speaker.Sample(val) {
 		fmt.Printf("The Audio Speaker is falling behind the audio samples!")
 	}
-
 	a.logSampling()
 }
 func (a *Apu) logSampling() {
@@ -80,8 +83,8 @@ func (a *Apu) logSampling() {
 	}
 
 	if (a.samples % uint(a.speaker.SampleRate())) == 0 {
-		sps := float64(a.samples) / time.Since(a.startTime).Seconds()
-		a.startTime = time.Now()
+		sps := float64(a.samples) / time.Since(a.sampleLogTime).Seconds()
+		a.sampleLogTime = time.Now()
 		hz := NesBaseFrequency / (float64(a.clock) / float64(a.samplesTotal))
 		a.samples = 0
 		fmt.Printf("Sampling: Real %v Hz, Apu %v Hz\n", sps, hz)
@@ -89,6 +92,10 @@ func (a *Apu) logSampling() {
 }
 
 func (a *Apu) ticks(nTicks int) {
+	if !a.enabled {
+		return
+	}
+
 	for i := 0; i < nTicks; i++ {
 		a.tick()
 	}

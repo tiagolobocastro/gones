@@ -13,7 +13,7 @@ type SpeakerPort struct {
 	stream *portaudio.Stream
 }
 
-func (s *SpeakerPort) Init() chan float64 {
+func (s *SpeakerPort) Init() {
 	s.doOnce.Do(func() {
 		chk(portaudio.Initialize())
 		h, err := portaudio.DefaultHostApi()
@@ -26,7 +26,27 @@ func (s *SpeakerPort) Init() chan float64 {
 		s.sampleChan = make(chan float64, s.sampleRate/10)
 		chk(s.stream.Start())
 	})
-	return s.sampleChan
+}
+func (s *SpeakerPort) Reset() {
+	s.stream.Stop()
+	chk(s.stream.Start())
+}
+func (s *SpeakerPort) Stop() {
+	if s.stream != nil {
+		s.stream.Close()
+	}
+}
+
+func (s *SpeakerPort) Sample(sample float64) bool {
+	select {
+	case s.sampleChan <- sample:
+		return true
+	default:
+		return false
+	}
+}
+func (s *SpeakerPort) SampleRate() int {
+	return s.sampleRate
 }
 
 func (s *SpeakerPort) processAudio(out []float32) {
@@ -45,8 +65,4 @@ func chk(err error) {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func (s *SpeakerPort) SampleRate() int {
-	return s.sampleRate
 }

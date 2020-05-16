@@ -5,6 +5,37 @@ import (
 	"time"
 )
 
+func NewNES(options ...func(*nes) error) *nes {
+	nes := &nes{}
+	nes.audioLib = Nil
+
+	if err := nes.setOptions(options...); err != nil {
+		panic(err)
+	}
+
+	nes.init()
+	return nes
+}
+
+func (n *nes) Stop() {
+	n.apu.Stop()
+}
+
+func (n *nes) Reset() {
+	n.resetRq = true
+}
+
+func (n *nes) Run() {
+	n.screen.run(n.freeRun)
+	if n.freeRun == true {
+		n.runFree()
+	} else {
+		for {
+			time.Sleep(time.Second * 100)
+		}
+	}
+}
+
 func (n *nes) init() {
 	n.bus.init()
 
@@ -117,18 +148,6 @@ func (n *nes) runFree() {
 	}
 }
 
-func (n *nes) Run() {
-
-	n.screen.run(n.freeRun)
-	if n.freeRun == true {
-		n.runFree()
-	} else {
-		for {
-			time.Sleep(time.Second * 100)
-		}
-	}
-}
-
 func (n *nes) reset() {
 	// probably need to stall them first
 	n.ppu.reset()
@@ -137,19 +156,4 @@ func (n *nes) reset() {
 	n.apu.reset()
 
 	n.resetRq = false
-}
-
-func (n *nes) resetRequest() {
-	n.resetRq = true
-}
-
-func NewNES(options ...func(*nes) error) *nes {
-	nes := &nes{}
-
-	if err := nes.setOptions(options...); err != nil {
-		panic(err)
-	}
-
-	nes.init()
-	return nes
 }

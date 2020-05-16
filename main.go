@@ -30,8 +30,8 @@ func main() {
 	}
 
 	flag.StringVar(&romPath, "rom", romPath, "path to the iNes Rom file to run")
-	audioLib := flag.String("audio", defaultAudioLibrary, "portaudio or beep audio library")
-	logAudio := flag.Bool("logaudio", false, "log audio sampling average every second")
+	audioLib := flag.String("audio", defaultAudioLibrary, "beep, portaudio or nil")
+	logAudio := flag.Bool("logaudio", false, "log audio sampling average every second (debug only)")
 	flag.CommandLine.Parse(os.Args[positionalArgs+1:])
 
 	if err := validateINesPath(romPath); err != nil {
