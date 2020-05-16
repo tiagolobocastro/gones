@@ -1,4 +1,4 @@
-# GoNes
+# GoNes ![CI](https://github.com/tiagolobocastro/gones/workflows/Go/badge.svg)
 NES Emulator written in go
 
 Uses the 2 libraries from github.com/faiface
