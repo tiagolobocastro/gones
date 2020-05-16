@@ -12,6 +12,8 @@ const NesApuFrequency = NesBaseFrequency / 2
 const NesApuFrameCycles = 7457
 const NesApuVolumeGain = 0.012
 
+//const NesApuVolumeGain = 0.00752
+
 type AudioLib string
 
 const (
@@ -49,22 +51,8 @@ type Apu struct {
 }
 
 func (a *Apu) reset() {
-	a.init(nil, a.verbose, a.logAudio, a.audioLib)
-}
-func (a *Apu) init(busInt busExtInt, verbose bool, logAudio bool, audioLib AudioLib) {
-	a.verbose = verbose
-
 	a.pulse1.Init(true)
 	a.pulse2.Init(false)
-
-	a.logAudio = logAudio
-	a.audioLib = audioLib
-	switch a.audioLib {
-	case Beep:
-		a.speaker = new(SpeakerBeep)
-	case PortAudio:
-		a.speaker = new(SpeakerPort)
-	}
 
 	a.samplingChan = a.speaker.Init()
 	a.sampleTicks = float64(NesBaseFrequency) / float64(a.speaker.SampleRate())
@@ -77,6 +65,19 @@ func (a *Apu) init(busInt busExtInt, verbose bool, logAudio bool, audioLib Audio
 	a.frameCounter = 0
 	a.frameStep = 0
 	a.frameMode = 0
+}
+func (a *Apu) init(busInt busExtInt, verbose bool, logAudio bool, audioLib AudioLib) {
+	a.verbose = verbose
+	a.logAudio = logAudio
+	a.audioLib = audioLib
+	switch a.audioLib {
+	case Beep:
+		a.speaker = new(SpeakerBeep)
+	case PortAudio:
+		a.speaker = new(SpeakerPort)
+	}
+
+	a.reset()
 }
 
 func (a *Apu) addSample(val float64) {
@@ -202,7 +203,6 @@ func (a *Apu) write8(addr uint16, val uint8) {
 
 func (a *Apu) mixPulses(pulse1 float64, pulse2 float64) float64 {
 	//pulseOut := 95.88 / ((8128 / (pulse1 + pulse2)) + 100)
-	pulseOut := 0.00752 * (pulse1 + pulse2)
-	//pulseOut := NesApuVolumeGain * (pulse1 + pulse2)
+	pulseOut := NesApuVolumeGain * (pulse1 + pulse2)
 	return pulseOut
 }

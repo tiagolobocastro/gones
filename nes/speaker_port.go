@@ -23,7 +23,7 @@ func (s *SpeakerPort) Init() chan float64 {
 		s.stream, err = portaudio.OpenStream(p, s.processAudio)
 		chk(err)
 		s.sampleRate = int(p.SampleRate)
-		s.sampleChan = make(chan float64, s.sampleRate)
+		s.sampleChan = make(chan float64, s.sampleRate/10)
 		chk(s.stream.Start())
 	})
 	return s.sampleChan

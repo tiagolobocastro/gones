@@ -22,24 +22,26 @@ func validateINesPath(romPath string) error {
 }
 
 func main() {
-	romPath := flag.String("rom", "", "path to the iNes Rom file to run")
-	audioLib := flag.String("speaker", defaultAudioLibrary, "portaudio or beep speaker engine")
-	logAudio := flag.Bool("logAudio", false, "log audio sampling average every second")
-
-	flag.Parse()
-
-	if len(os.Args) > 1 && *romPath == "" {
-		*romPath = os.Args[1]
+	romPath := ""
+	positionalArgs := 0
+	if len(os.Args) > 1 && os.Args[1][0] != '-' {
+		romPath = os.Args[1]
+		positionalArgs++
 	}
 
-	if err := validateINesPath(*romPath); err != nil {
+	flag.StringVar(&romPath, "rom", romPath, "path to the iNes Rom file to run")
+	audioLib := flag.String("audio", defaultAudioLibrary, "portaudio or beep audio library")
+	logAudio := flag.Bool("logaudio", false, "log audio sampling average every second")
+	flag.CommandLine.Parse(os.Args[positionalArgs+1:])
+
+	if err := validateINesPath(romPath); err != nil {
 		fmt.Printf("Failed to start GoNes, err=%v\n", err)
 		return
 	}
 
-	fmt.Printf("Starting GoNes with iNes Rom file: %s\n", *romPath)
+	fmt.Printf("Starting GoNes with iNes Rom file: %s\n", romPath)
 	nes := gones.NewNES(
-		gones.CartPath(*romPath),
+		gones.CartPath(romPath),
 		gones.Verbose(false),
 		gones.FreeRun(false),
 		gones.AudioLibrary(*audioLib),
