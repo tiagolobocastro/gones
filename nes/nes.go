@@ -5,8 +5,6 @@ import (
 	"time"
 )
 
-const NesBaseFrequency = 1789773
-
 func (n *nes) init() {
 	n.bus.init()
 

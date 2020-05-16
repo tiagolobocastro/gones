@@ -127,3 +127,22 @@ type iInterrupt interface {
 	raise(uint8)
 	clear(uint8)
 }
+
+type AudioLib string
+
+const (
+	Beep      = "beep"
+	PortAudio = "portaudio"
+)
+
+type AudioSpeaker interface {
+	Init() chan float64
+	SampleRate() int
+}
+
+const NesBaseFrequency = 1789773
+const NesApuFrequency = NesBaseFrequency / 2
+const NesApuFrameCycles = 7457
+const NesApuVolumeGain = 0.012
+
+//const NesApuVolumeGain = 0.00752

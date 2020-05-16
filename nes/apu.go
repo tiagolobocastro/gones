@@ -8,24 +8,6 @@ import (
 	"github.com/tiagolobocastro/gones/nes/waves"
 )
 
-const NesApuFrequency = NesBaseFrequency / 2
-const NesApuFrameCycles = 7457
-const NesApuVolumeGain = 0.012
-
-//const NesApuVolumeGain = 0.00752
-
-type AudioLib string
-
-const (
-	Beep      = "beep"
-	PortAudio = "portaudio"
-)
-
-type AudioSpeaker interface {
-	Init() chan float64
-	SampleRate() int
-}
-
 type Apu struct {
 	pulse1 waves.Pulse
 	pulse2 waves.Pulse
