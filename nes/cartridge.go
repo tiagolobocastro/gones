@@ -2,7 +2,6 @@ package gones
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -10,21 +9,7 @@ import (
 	"strings"
 )
 
-const NESMagicConstant = 0x1A53454E
-
 var cartEndianness = binary.LittleEndian
-
-type iNESHeader struct {
-	NESMagic    int32   // "NES" + EOF
-	PRG_ROMSize byte    // in 16kB units
-	CHR_ROMSize byte    // in 8kB units (0 means the board uses CHR RAM)
-	Flags6      byte    // Mapper, mirroring, battery, trainer
-	Flags7      byte    // Mapper, VS/PlayChoice, NES 2.0
-	Flags8      byte    // PRG-RAM size
-	Flags9      byte    // TV System
-	Flags10     byte    // TV System, PRG-RAM presence
-	Padding     [5]byte // should be zero filled
-}
 
 func (c *Cartridge) defaultInit() error {
 	c.prg.init(16384*4, true)
@@ -37,7 +22,6 @@ func (c *Cartridge) defaultInit() error {
 }
 
 func (c *Cartridge) init(cartPath string) error {
-
 	c.cart = cartPath
 
 	c.prg = new(rom)
@@ -45,6 +29,8 @@ func (c *Cartridge) init(cartPath string) error {
 	c.ram = new(ram)
 
 	if c.cart == "" {
+		// current go tests do not use a cartridge but rather just
+		// soft load code on demand
 		return c.defaultInit()
 	}
 
@@ -64,48 +50,31 @@ func (c *Cartridge) init(cartPath string) error {
 		return err
 	}
 
-	if header.NESMagic != NESMagicConstant {
-		return errors.New("rom path points to a muggle iNES file (failed to find the magic number)")
+	c.config, err = header.Config()
+	if err != nil {
+		return err
 	}
 
-	mapper1 := header.Flags6 >> 4
-	mapper2 := header.Flags7 >> 4
-	mapper := mapper1 | mapper2<<4
-
-	// mirroring type
-	mirror1 := header.Flags6 & 1
-	mirror2 := (header.Flags6 >> 3) & 1
-	c.mirror = mirror1 | mirror2<<1
-
-	// NV Ram (battery backed or EEPROM)
-	c.battery = (header.Flags6 >> 1) & 1
-
-	// read trainer if present (unused)
-	if header.Flags6&4 == 4 {
+	if c.config.trainer {
 		trainer := make([]byte, 512)
 		if _, err = io.ReadFull(file, trainer); err != nil {
 			return err
 		}
 	}
 
-	c.prg.init(int(header.PRG_ROMSize)*16384, false)
+	c.prg.init(c.config.prgSize, false)
 	if _, err = io.ReadFull(file, c.prg.rom); err != nil {
 		return err
 	}
 
-	c.chr.init(int(header.CHR_ROMSize)*8192, false)
+	c.chr.init(c.config.chrSize, false)
 	if _, err = io.ReadFull(file, c.chr.rom); err != nil {
 		return err
 	}
 
-	// provide chr-rom/ram if not in file
-	if header.CHR_ROMSize == 0 {
-		c.chr.init(8192, false)
-	}
+	c.ram.init(c.config.ramSize)
 
-	c.ram.init(int(header.Flags8))
-
-	c.mapper = c.newCartMapper(mapper)
+	c.mapper = c.newCartMapper(c.config.mapper)
 	return nil
 }
 
@@ -122,17 +91,15 @@ func (c *Cartridge) newCartMapper(mapper byte) Mapper {
 
 // BusInt
 type Cartridge struct {
-	prg     *rom
-	chr     *rom
-	ram     *ram
-	mirror  byte
-	battery byte
-	prgSize byte
-	chrSize byte
+	config  iNESConfig
+	version iNESFormat
+	cart    string
+
+	prg *rom
+	chr *rom
+	ram *ram
 
 	mapper Mapper
-
-	cart string
 }
 
 // loads hex dumps from: https://skilldrick.github.io/easy6502/, eg:

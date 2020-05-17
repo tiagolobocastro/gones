@@ -1,5 +1,7 @@
 package gones
 
+import "fmt"
+
 const (
 	mapperNROM  = iota
 	mapperUnROM = 2
@@ -18,6 +20,8 @@ type MapperNROM struct {
 //CPU $C000-$FFFF: Last 16 KB of ROM (NROM-256) or mirror of $8000-$BFFF (NROM-128).
 func (m *MapperNROM) read8(addr uint16) uint8 {
 	switch {
+	// PPU - normally mapped by the cartridge to a CHR-ROM or CHR-RAM,
+	// often with a bank switching mechanism.
 	case addr < 0x2000:
 		return m.cart.chr.read8(addr)
 	case addr < 0x8000:
@@ -27,7 +31,12 @@ func (m *MapperNROM) read8(addr uint16) uint8 {
 	}
 }
 func (m *MapperNROM) write8(addr uint16, val uint8) {
-	panic("write not implemented!")
+	switch {
+	case addr > 0x6000, addr < 0x8000:
+		m.cart.ram.write8(addr%0x6000, val)
+	default:
+		panic(fmt.Sprintf("write not implemented for %v!", addr))
+	}
 }
 
 // CPU Mapping Table
@@ -55,7 +64,7 @@ func (m *cpuMapper) read8(addr uint16) uint8 {
 
 	case addr < 0x4016:
 		// read from APU and I-O
-		panic("address range not implemented!")
+		//panic("address range not implemented!")
 	case addr < 0x4018:
 		// Controller
 		return m.nes.ctrl.read8(addr)
@@ -85,7 +94,7 @@ func (m *cpuMapper) write8(addr uint16, val uint8) {
 
 	case addr < 0x4016:
 		// I-O
-		// panic("address range not implemented!")
+		//panic("address range not implemented!")
 	case addr < 0x4018:
 		// Controller
 		m.nes.ctrl.write8(addr, val)
@@ -94,7 +103,7 @@ func (m *cpuMapper) write8(addr uint16, val uint8) {
 		//panic("address range not implemented!")
 
 	default:
-		panic("cannot write to cart!")
+		m.nes.cart.mapper.write8(addr, val)
 	}
 }
 
@@ -127,6 +136,20 @@ func (m *dmaMapper) write8(addr uint16, val uint8) {
 // $3000-$3EFF 		$0F00 	Mirrors of $2000-$2EFF
 // $3F00-$3F1F 		$0020 	Palette RAM indexes
 // $3F20-$3FFF 		$00E0 	Mirrors of $3F00-$3F1F
+//
+// The mappings above are the fixed addresses from which the PPU uses to fetch data during rendering.
+// The actual device that the PPU fetches data from, however, may be configured by the cartridge.
+//
+//  $0000-1FFF is normally mapped by the cartridge to a CHR-ROM or CHR-RAM, often with a bank switching mechanism.
+//
+//  $2000-2FFF is normally mapped to the 2kB NES internal VRAM, providing 2 nametables with a mirroring
+//       configuration controlled by the cartridge, but it can be partly or fully remapped to RAM on the cartridge,
+//       allowing up to 4 simultaneous nametables.
+//
+//  $3000-3EFF is usually a mirror of the 2kB region from $2000-2EFF. The PPU does not render from this address range,
+//       so this space has negligible utility.
+//
+//  $3F00-3FFF is not configurable, always mapped to the internal palette control.
 type ppuMapper struct {
 	*nes
 }
@@ -136,12 +159,14 @@ func (m *ppuMapper) read8(addr uint16) uint8 {
 	// PPU VRAM or controlled via the Cartridge Mapper
 	case addr < 0x2000:
 		return m.nes.cart.mapper.read8(addr)
+
+	// normally mapped to the internal vRAM but it can be remapped!
 	case addr < 0x3000:
 		return m.nes.vRam.read8(addr % 2048)
 	case addr < 0x3F00:
 		return m.nes.vRam.read8(addr % 2048)
 
-	// internal palette control
+	// internal palette control - not configurable
 	case addr < 0x3F20:
 		return m.nes.ppu.palette.read8(addr % 32)
 	case addr < 0x4000:
