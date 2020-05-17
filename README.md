@@ -29,12 +29,22 @@ Requirements: Golang, MinGW toolchain, Portaudio
 
 
 ---
-## Building on Linux (example for Ubuntu)
+## Building on Linux
 Requirements: Golang, X dev, Portaudio
 #### Install X devel
->apt install libgl1-mesa-dev xorg-dev 
+Ubuntu:
+>apt install libgl1-mesa-dev xorg-dev
+
+
+Arch:
+>pacman -S xorg-server-devel
 #### Install PortAudio
+Ubuntu:
 >apt install portaudio19-dev
+
+
+Arch:
+>pacman -S base-devel portaudio
 
 ### Now we're ready
 >go get github.com/tiagolobocastro/gones
