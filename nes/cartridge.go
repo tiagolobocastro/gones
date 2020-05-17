@@ -12,7 +12,7 @@ import (
 var cartEndianness = binary.LittleEndian
 
 func (c *Cartridge) defaultInit() error {
-	c.prg.init(16384*4, true)
+	c.prgRom.init(16384*4, true)
 	c.chr.init(16384, true)
 	c.ram.init(16384)
 
@@ -24,7 +24,8 @@ func (c *Cartridge) defaultInit() error {
 func (c *Cartridge) init(cartPath string) error {
 	c.cart = cartPath
 
-	c.prg = new(rom)
+	c.prgRom = new(rom)
+	c.prgRam = new(ram)
 	c.chr = new(rom)
 	c.ram = new(ram)
 
@@ -62,19 +63,21 @@ func (c *Cartridge) init(cartPath string) error {
 		}
 	}
 
-	c.prg.init(c.config.prgSize, false)
-	if _, err = io.ReadFull(file, c.prg.rom); err != nil {
+	c.prgRom.init(c.config.prgRomSize, false)
+	if _, err = io.ReadFull(file, c.prgRom.rom); err != nil {
 		return err
 	}
+	c.prgRam.init(c.config.prgRamSize)
 
-	c.chr.init(c.config.chrSize, false)
+	c.chr.init(c.config.chrRomSize, false)
 	if _, err = io.ReadFull(file, c.chr.rom); err != nil {
 		return err
 	}
 
-	c.ram.init(c.config.ramSize)
+	c.ram.init(c.config.chrRamSize)
 
 	c.mapper = c.newCartMapper(c.config.mapper)
+	c.mapper.Init()
 	return nil
 }
 
@@ -82,6 +85,8 @@ func (c *Cartridge) newCartMapper(mapper byte) Mapper {
 	switch mapper {
 	case mapperNROM:
 		return &MapperNROM{cart: c}
+	case mapperMMC1:
+		return &MapperMMC1{cart: c}
 	case mapperUnROM:
 		return &MapperNROM{cart: c}
 	default:
@@ -95,16 +100,17 @@ type Cartridge struct {
 	version iNESFormat
 	cart    string
 
-	prg *rom
-	chr *rom
-	ram *ram
+	prgRom *rom
+	prgRam *ram
+	chr    *rom
+	ram    *ram
 
 	mapper Mapper
 }
 
 // loads hex dumps from: https://skilldrick.github.io/easy6502/, eg:
-// `0600: a9 01 85 02 a9 cc 8d 00 01 a9 01 aa a1 00 00 00
-//  0610: a9 05 aa 8e 00 02 a9 05 8d 01 02 a9 08 8d 02 02`
+// `0600: a9 01 85 02 a9 cc 8d 00 01 a9 01 a a1 00 00 00
+//  0610: a9 05 a 8e 00 02 a9 05 8d 01 02 a9 08 8d 02 02`
 
 func (n *nes) loadEasyCode(code string) {
 
@@ -120,7 +126,7 @@ func (n *nes) loadEasyCode(code string) {
 
 		if i == 0 {
 			// assumes first line is where the program starts
-			n.cart.prg.write16(0xFFFC, uint16(addr))
+			n.cart.prgRom.write16(0xFFFC, uint16(addr))
 		}
 
 		for i, b := range bt {

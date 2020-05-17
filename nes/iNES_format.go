@@ -57,13 +57,16 @@ type iNESHeader struct {
 }
 
 type iNESConfig struct {
-	mapper  byte
-	mirror  byte
-	battery bool
-	trainer bool
-	prgSize int
-	chrSize int
-	ramSize int // in 8KiB chunks
+	mapper       byte
+	mirror       byte
+	battery      bool
+	trainer      bool
+	prgRomSize   int
+	prgRamSize   int
+	prgNVRamSize int
+	chrRomSize   int
+	chrRamSize   int
+	chrNVRamSize int
 }
 
 func (h *iNESHeader) MagicNumber() int32 {
@@ -134,13 +137,16 @@ func (h *iNES0Header) Config() iNESConfig {
 	mirror2 := (h.Flags6 >> 3) & 1
 
 	return iNESConfig{
-		mapper:  h.Flags6 >> 4,
-		mirror:  mirror1 | mirror2<<1,
-		battery: ((h.Flags6 >> 1) & 1) == 1,
-		trainer: h.Flags6&4 == 4,
-		prgSize: int(h.PRG_ROMSize) * 16384,
-		chrSize: int(h.CHR_ROMSize) * 8192,
-		ramSize: 8192,
+		mapper:       h.Flags6 >> 4,
+		mirror:       mirror1 | mirror2<<1,
+		battery:      ((h.Flags6 >> 1) & 1) == 1,
+		trainer:      h.Flags6&4 == 4,
+		prgRomSize:   int(h.PRG_ROMSize) * 16384,
+		prgRamSize:   0,
+		prgNVRamSize: 0,
+		chrRomSize:   int(h.CHR_ROMSize) * 8192,
+		chrRamSize:   0,
+		chrNVRamSize: 0,
 	}
 }
 
@@ -154,16 +160,18 @@ func (h *iNES1Header) Config() iNESConfig {
 		// Value 0 infers 1 (8 KB) for compatibility; see PRG RAM circuit)
 		h.Flags8 = 1
 	}
-	ramSize := int(h.Flags8) * 8192
 
 	return iNESConfig{
-		mapper:  mapper1 | mapper2<<4,
-		mirror:  mirror1 | mirror2<<1,
-		battery: ((h.Flags6 >> 1) & 1) == 1,
-		trainer: h.Flags6&4 == 4,
-		prgSize: int(h.PRG_ROMSize) * 16384,
-		chrSize: int(h.CHR_ROMSize) * 8192,
-		ramSize: ramSize,
+		mapper:       mapper1 | mapper2<<4,
+		mirror:       mirror1 | mirror2<<1,
+		battery:      ((h.Flags6 >> 1) & 1) == 1,
+		trainer:      h.Flags6&4 == 4,
+		prgRomSize:   int(h.PRG_ROMSize) * 16384,
+		prgRamSize:   int(h.Flags8) * 8192,
+		prgNVRamSize: 0,
+		chrRomSize:   int(h.CHR_ROMSize) * 8192,
+		chrRamSize:   0,
+		chrNVRamSize: 0,
 	}
 }
 
@@ -173,19 +181,23 @@ func (h *iNES2Header) Config() iNESConfig {
 	mirror1 := h.Flags6 & 1
 	mirror2 := (h.Flags6 >> 3) & 1
 
-	if h.Flags8 == 0 {
-		// Value 0 infers 1 (8 KB) for compatibility; see PRG RAM circuit)
-		h.Flags8 = 1
-	}
-	ramSize := int(h.Flags8) * 8192
+	prgRomSize := int(h.PRG_ROMSize) | int(h.Flags9&0xF)<<8
+	prgRamSize := 64 << int(h.Flags10&0xF)
+	prgNVRamSize := 64 << (int(h.Flags10&0xF0) >> 4)
+	chrSize := int(h.CHR_ROMSize) | int(h.Flags9&0xF0)<<4
+	ramSize := 64 << int(h.Flags11&0xF)
+	nvRamSize := 64 << (int(h.Flags11&0xF0) >> 4)
 
 	return iNESConfig{
-		mapper:  mapper1 | mapper2<<4,
-		mirror:  mirror1 | mirror2<<1,
-		battery: ((h.Flags6 >> 1) & 1) == 1,
-		trainer: h.Flags6&4 == 4,
-		prgSize: int(h.PRG_ROMSize) * 16384,
-		chrSize: int(h.CHR_ROMSize) * 8192,
-		ramSize: ramSize,
+		mapper:       mapper1 | mapper2<<4,
+		mirror:       mirror1 | mirror2<<1,
+		battery:      ((h.Flags6 >> 1) & 1) == 1,
+		trainer:      h.Flags6&4 == 4,
+		prgRomSize:   prgRomSize * 16384,
+		prgRamSize:   prgRamSize,
+		prgNVRamSize: prgNVRamSize,
+		chrRomSize:   chrSize * 8192,
+		chrRamSize:   ramSize,
+		chrNVRamSize: nvRamSize,
 	}
 }
