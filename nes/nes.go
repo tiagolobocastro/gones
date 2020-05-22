@@ -44,7 +44,6 @@ func (n *nes) init() {
 	}
 
 	n.ram.init(0x800)
-	n.vRam.init(0x800)
 
 	n.ctrl.init()
 	n.screen.init(n)

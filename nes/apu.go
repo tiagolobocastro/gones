@@ -118,7 +118,7 @@ func (a *Apu) tick() {
 }
 
 func (a *Apu) sample() {
-	if a.clock > uint(a.sampleTargetTicks) {
+	if a.clock >= uint(a.sampleTargetTicks) {
 		a.sampleTargetTicks += a.sampleTicks
 
 		mix := a.mixPulses(a.pulse1.Sample(), a.pulse2.Sample())

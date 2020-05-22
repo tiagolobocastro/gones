@@ -73,11 +73,13 @@ func (c *Cartridge) init(cartPath string) error {
 	if _, err = io.ReadFull(file, c.chr.rom); err != nil {
 		return err
 	}
-
-	c.ram.init(c.config.chrRamSize)
+	if c.config.chrRomSize == 0 {
+		c.chr.init(0x4000, true)
+	}
 
 	c.mapper = c.newCartMapper(c.config.mapper)
 	c.mapper.Init()
+	c.tables.init(NameTableMirroring(c.config.mirror))
 	return nil
 }
 
@@ -104,6 +106,7 @@ type Cartridge struct {
 	prgRam *ram
 	chr    *rom
 	ram    *ram
+	tables NameTables
 
 	mapper Mapper
 }

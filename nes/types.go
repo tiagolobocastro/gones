@@ -99,7 +99,6 @@ type nes struct {
 	ram  ram
 	cart Cartridge
 	ppu  Ppu
-	vRam ram
 	dma  dma
 	apu  Apu
 	ctrl controllers

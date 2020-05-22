@@ -74,7 +74,7 @@ func (m *cpuMapper) read8(addr uint16) uint8 {
 		return m.nes.ctrl.read8(addr)
 	case addr < 0x4020:
 		// APU
-		panic("address range not implemented!")
+		panic(fmt.Errorf("address range not implemented, addr: 0x%04x", addr))
 
 	default:
 		return m.nes.cart.mapper.read8(addr)
@@ -163,12 +163,11 @@ func (m *ppuMapper) read8(addr uint16) uint8 {
 	// PPU VRAM or controlled via the Cartridge Mapper
 	case addr < 0x2000:
 		return m.nes.cart.mapper.read8(addr)
-
 	// normally mapped to the internal vRAM but it can be remapped!
 	case addr < 0x3000:
-		return m.nes.vRam.read8(addr % 2048)
+		return m.nes.cart.tables.read8(addr)
 	case addr < 0x3F00:
-		return m.nes.vRam.read8(addr % 2048)
+		return m.nes.cart.tables.read8(addr - 0x1000)
 
 	// internal palette control - not configurable
 	case addr < 0x3F20:
@@ -182,10 +181,12 @@ func (m *ppuMapper) read8(addr uint16) uint8 {
 func (m *ppuMapper) write8(addr uint16, val uint8) {
 	switch {
 	// PPU VRAM or controlled via the Cartridge Mapper
+	case addr < 0x2000:
+		m.nes.cart.mapper.write8(addr, val)
 	case addr < 0x3000:
-		m.nes.vRam.write8(addr%2048, val)
+		m.nes.cart.tables.write8(addr, val)
 	case addr < 0x3F00:
-		m.nes.vRam.write8(addr%2048, val)
+		m.nes.cart.tables.write8(addr-0x1000, val)
 
 	// internal palette control
 	case addr < 0x4000:
@@ -206,19 +207,19 @@ type MapperMMC1 struct {
 
 	// mapper mmc1 logic
 	// https://wiki.nesdev.com/w/index.php/MMC1
-	load     register
-	shift    register
-	control  register
-	chrBank0 register
-	chrBank1 register
-	prgBank  register
+	shift    uint8
+	control  uint8
+	chrBank0 uint8
+	chrBank1 uint8
+	prgBank  uint8
 
 	mirror      uint8
 	counter     uint8
 	prgBankMode uint8
 	chrBankMode uint8
 
-	prgBanks [2]uint16
+	prgBanks [2]uint32
+	chrBanks [2]uint16
 }
 
 // 7  bit  0
@@ -228,26 +229,34 @@ type MapperMMC1 struct {
 // |       +- Data bit to be shifted into shift register, LSB first
 // +--------- 1: Reset shift register and write Control with (Control OR $0C),
 //              locking PRG ROM at $C000-$FFFF to the last bank.
-func (m *MapperMMC1) writeLoad() {
-	if (m.load.val & 0x80) != 0 {
-		m.shift.val = 0x8
+func (m *MapperMMC1) writeLoad(addr uint16, val uint8) {
+	if (val & 0x80) != 0 {
+		m.shift = 0x0
 		m.counter = 0
-		m.control.write(0xC)
 	} else {
+		m.shift = m.shift | (val&0x1)<<m.counter
 		m.counter++
-		m.shift.val = ((m.shift.val >> 1) | ((m.load.val & 1) << 4)) & 0x1F
+
+		if m.counter == 5 {
+
+			m.writeInner(addr, m.shift)
+
+			m.shift = 0x0
+			m.counter = 0
+		}
 	}
 }
 
-func (m *MapperMMC1) toggleBanks() {
-	switch m.prgBankMode {
-	case 0, 1:
-	case 2:
-		m.prgBanks[0] = 0x8000
-		m.prgBanks[1] = 0xC000
-	case 3:
-		m.prgBanks[0] = 0xC000
-		m.prgBanks[1] = 0x8000
+func (m *MapperMMC1) writeInner(addr uint16, val uint8) {
+	switch {
+	case addr >= 0x8000 && addr <= 0x9FFF:
+		m.writeControl(val)
+	case addr >= 0xA000 && addr <= 0xBFFF:
+		m.writeCHRBank0(val)
+	case addr >= 0xC000 && addr <= 0xDFFF:
+		m.writeCHRBank1(val)
+	case addr >= 0xE000 && addr <= 0xFFFF:
+		m.writePRGBank(val)
 	}
 }
 
@@ -262,11 +271,20 @@ func (m *MapperMMC1) toggleBanks() {
 // |                         2: fix first bank at $8000 and switch 16 KB bank at $C000;
 // |                         3: fix last bank at $C000 and switch 16 KB bank at $8000)
 // +----- CHR ROM bank mode (0: switch 8 KB at a time; 1: switch two separate 4 KB banks)
-func (m *MapperMMC1) writeControl() {
-	m.mirror = m.control.val & 0x3
-	m.prgBankMode = (m.control.val >> 2) & 0x3
-	m.chrBankMode = m.control.val >> 4
-	m.toggleBanks()
+func (m *MapperMMC1) writeControl(val uint8) {
+	m.mirror = val & 0x3
+	switch m.mirror {
+	case 0:
+		m.cart.tables.mirroring = SingleScreenMirroring
+	case 1:
+		m.cart.tables.mirroring = SingleScreenMirroring
+	case 2:
+		m.cart.tables.mirroring = VerticalMirroring
+	case 3:
+		m.cart.tables.mirroring = HorizontalMirroring
+	}
+	m.prgBankMode = (val >> 2) & 0x3
+	m.chrBankMode = val >> 4
 }
 
 // CHR bank 0 (internal, $A000-$BFFF)
@@ -276,8 +294,18 @@ func (m *MapperMMC1) writeControl() {
 // CCCCC
 // |||||
 // +++++- Select 4 KB or 8 KB CHR bank at PPU $0000 (low bit ignored in 8 KB mode)
-func (m *MapperMMC1) writeCHRBank0() {
-	m.toggleBanks()
+func (m *MapperMMC1) writeCHRBank0(val uint8) {
+	switch m.chrBankMode {
+	case 0:
+		// 8 KB
+		bank := (uint16(val&0x1e) >> 1) * 0x2000
+		m.chrBanks[0] = bank
+		m.chrBanks[1] = bank + 0x1000
+	case 1:
+		// 4 KB
+		bank := uint16(val&0x1f) * 0x1000
+		m.chrBanks[0] = bank
+	}
 }
 
 // CHR bank 1 (internal, $C000-$DFFF)
@@ -287,8 +315,16 @@ func (m *MapperMMC1) writeCHRBank0() {
 // CCCCC
 // |||||
 // +++++- Select 4 KB CHR bank at PPU $1000 (ignored in 8 KB mode)
-func (m *MapperMMC1) writeCHRBank1() {
-	m.toggleBanks()
+func (m *MapperMMC1) writeCHRBank1(val uint8) {
+	switch m.chrBankMode {
+	case 0:
+		// 8 KB
+		// noop
+	case 1:
+		// 4 KB
+		bank := uint16(val&0x1f) * 0x1000
+		m.chrBanks[1] = bank + 0x1000
+	}
 }
 
 // PRG bank (internal, $E000-$FFFF)
@@ -299,13 +335,28 @@ func (m *MapperMMC1) writeCHRBank1() {
 // |||||
 // |++++- Select 16 KB PRG ROM bank (low bit ignored in 32 KB mode)
 // +----- PRG RAM chip enable (0: enabled; 1: disabled; ignored on MMC1A)
-func (m *MapperMMC1) writePRGBank() {
-	m.toggleBanks()
+func (m *MapperMMC1) writePRGBank(val uint8) {
+	switch m.prgBankMode {
+	case 0, 1:
+		// 32KB mode
+		bankV := uint32(val&0xe) >> 1
+		bank := 0x8000 * bankV
+
+		m.prgBanks[0] = bank
+		m.prgBanks[1] = bank + 0x4000
+
+	case 2:
+		//  2: fix first bank at $8000 and switch 16 KB bank at $C000;
+		m.prgBanks[0] = 0x0000
+		m.prgBanks[1] = 0x4000 * uint32(val)
+	case 3:
+		// 3: fix last bank at $C000 and switch 16 KB bank at $8000)
+		m.prgBanks[0] = 0x4000 * uint32(val)
+		m.prgBanks[1] = (0xe >> 1) * 0x4000
+	}
 }
 
 func (m *MapperMMC1) Init() {
-	m.load.initx("load_register", 0, m.writeLoad, nil)
-	m.shift.init("shift_register", 0)
 }
 
 //CPU $6000-$7FFF: Family Basic only: PRG RAM, mirrored as necessary to fill entire 8 KiB window, write protectable with an external switch
@@ -315,24 +366,32 @@ func (m *MapperMMC1) read8(addr uint16) uint8 {
 	switch {
 	// PPU - normally mapped by the cartridge to a CHR-ROM or CHR-RAM,
 	// often with a bank switching mechanism.
+	case addr < 0x1000:
+		return m.cart.chr.read8(addr + m.chrBanks[0])
 	case addr < 0x2000:
-		return m.cart.chr.read8(addr)
+		return m.cart.chr.read8(addr - 0x1000 + m.chrBanks[1])
 	case addr > 0x6000 && addr < 0x8000:
 		return m.cart.prgRam.read8(addr % 0x6000)
-	case addr > 0x8000 && addr < 0xC000:
-		return m.cart.prgRom.read8(addr % 0x8000)
+	case addr >= 0x8000 && addr < 0xC000:
+		offset := uint32(addr - 0x8000)
+		return m.cart.prgRom.read8w(m.prgBanks[0] + offset)
 	case addr > 0xC000:
-		return m.cart.prgRom.read8(addr % 0xC000)
+		offset := uint32(addr - 0xC000)
+		return m.cart.prgRom.read8w(m.prgBanks[1] + offset)
 	default:
 		panic(fmt.Sprintf("write not implemented for 0x%04x!", addr))
 	}
 }
 func (m *MapperMMC1) write8(addr uint16, val uint8) {
 	switch {
-	case addr > 0x6000 && addr < 0x8000:
+	case addr < 0x1000:
+		m.cart.chr.write8(addr+m.chrBanks[0], val)
+	case addr < 0x2000:
+		m.cart.chr.write8(addr-0x1000+m.chrBanks[1], val)
+	case addr >= 0x6000 && addr < 0x8000:
 		m.cart.prgRam.write8(addr%0x6000, val)
 	case addr >= 0x8000:
-		m.control.write(val)
+		m.writeLoad(addr, val)
 	default:
 		panic(fmt.Sprintf("write not implemented for 0x%04x!", addr))
 	}

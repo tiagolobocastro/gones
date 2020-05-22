@@ -2,7 +2,6 @@ package gones
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"strings"
@@ -93,8 +92,8 @@ func (c *Cpu) init(busInt busExtInt, verbose bool) {
 		log.Fatalf("error opening file: %v", err)
 	}
 	c.f = f
-	wrt := io.MultiWriter(os.Stdout, f)
-	log.SetOutput(wrt)
+	//wrt := io.MultiWriter(os.Stdout, f)
+	log.SetOutput(f)
 }
 
 func (c *Cpu) reset() {
@@ -176,7 +175,7 @@ func (c *Cpu) exec() {
 		c.rg.spc.pc.val += uint16(c.curr.ins.opLength)
 
 		// testing
-		panic("invalid instruction")
+		panic(fmt.Errorf("invalid instruction, opcode: 0x%02x", opCode))
 
 		return
 	}
@@ -320,7 +319,7 @@ func (c *Cpu) getOperandAddr(ins *Instruction) uint16 {
 	case ModeInvalid:
 		fallthrough
 	default:
-		panic("Invalid instruction address mode")
+		panic(fmt.Errorf("invalid instruction address mode: %d", ins.addrMode))
 	}
 }
 
