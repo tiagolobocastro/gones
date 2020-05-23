@@ -68,9 +68,14 @@ func (a *Apu) Stop() {
 	a.speaker.Stop()
 }
 
+var lastLagReported time.Time
+
 func (a *Apu) addSample(val float64) {
 	if !a.speaker.Sample(val) {
-		fmt.Printf("The Audio Speaker is falling behind the audio samples!")
+		if time.Now().Second()-lastLagReported.Second() > 1 {
+			lastLagReported = time.Now()
+			fmt.Printf("The Audio Speaker is falling behind the audio samples!\n")
+		}
 	}
 	a.logSampling()
 }

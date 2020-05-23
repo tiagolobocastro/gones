@@ -96,6 +96,10 @@ func (c *Cartridge) newCartMapper(mapper byte) Mapper {
 	}
 }
 
+func (c *Cartridge) SetMirroring(mirroring NameTableMirroring) {
+	c.tables.mirroring = mirroring
+}
+
 // BusInt
 type Cartridge struct {
 	config  iNESConfig
