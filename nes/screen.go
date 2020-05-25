@@ -47,7 +47,6 @@ func (s *screen) run(freeRun bool) {
 }
 
 func (s *screen) runThread() {
-
 	cfg := pixelgl.WindowConfig{
 		Title:  "GoNes",
 		Bounds: pixel.R(0, 0, screenXWidth, screenYHeight),
@@ -70,7 +69,6 @@ func (s *screen) runThread() {
 }
 
 func (s *screen) runner() {
-
 	go func() {
 		tmr := time.Tick(time.Second / 240)
 		for {
@@ -146,7 +144,23 @@ func (s *screen) updateFpsTitle() {
 }
 
 func (s *screen) freeRunner() {
+	lastLoopFrames := 0
 	for !s.window.Closed() {
+		s.nes.Step((time.Second / 240).Seconds())
+		select {
+		case <-s.framebuffer.frameUpdated:
+			frameDiff := s.framebuffer.frames - lastLoopFrames
+			if frameDiff > 0 {
+				if frameDiff > 1 {
+					fmt.Printf("Ups, skipped %v frames!\n", frameDiff)
+				}
+
+				s.draw()
+				s.window.Update()
+				lastLoopFrames = s.framebuffer.frames
+			}
+		}
+
 		s.updateFpsTitle()
 		s.updateControllers()
 	}
