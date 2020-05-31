@@ -10,7 +10,7 @@ const (
 	channelAll2
 )
 
-type pulseInterface interface {
+type timerPeriodInterface interface {
 	setPeriod(uint16)
 	getPeriod() uint16
 }
@@ -70,15 +70,15 @@ type Sequencer struct {
 	row    uint8
 	column uint8
 
-	pulse pulseInterface
+	period timerPeriodInterface
 }
 
-func (s *Sequencer) init(table [][]uint8, pulse pulseInterface) {
+func (s *Sequencer) init(table [][]uint8, period timerPeriodInterface) {
 	s.table = table
 	s.width = uint8(len(table[0]))
 	s.column = 0
 	s.row = 0
-	s.pulse = pulse
+	s.period = period
 
 	s.reset()
 }
@@ -91,12 +91,12 @@ func (s *Sequencer) selectRow(row uint8) {
 	s.row = row
 }
 func (s *Sequencer) resetLow(value uint8) {
-	reload := (s.pulse.getPeriod() & 0x700) | uint16(value)
-	s.pulse.setPeriod(reload)
+	reload := (s.period.getPeriod() & 0x700) | uint16(value)
+	s.period.setPeriod(reload)
 }
 func (s *Sequencer) resetHigh(value uint8) {
-	reload := (s.pulse.getPeriod() & 0xFF) | (uint16(value) << 8)
-	s.pulse.setPeriod(reload)
+	reload := (s.period.getPeriod() & 0xFF) | (uint16(value) << 8)
+	s.period.setPeriod(reload)
 	s.column = 0
 }
 
@@ -106,7 +106,7 @@ func (s *Sequencer) tick() {
 	if s.timer > 0 {
 		s.timer--
 	} else {
-		s.timer = s.pulse.getPeriod()
+		s.timer = s.period.getPeriod()
 		s.column = (s.column + 1) % s.width
 	}
 }
@@ -153,7 +153,7 @@ func (e *Envelope) tick() {
 }
 
 // An NES APU sweep unit can be made to periodically adjust
-// a pulse channel's period up or down.
+// a period channel's period up or down.
 // Each sweep unit contains the following: divider, reload flag.
 type Sweep struct {
 	reload        bool
@@ -163,10 +163,10 @@ type Sweep struct {
 	divider       uint8
 	dividerReload uint8
 
-	pulse pulseInterface
+	pulse timerPeriodInterface
 }
 
-func (s *Sweep) init(pulse pulseInterface) {
+func (s *Sweep) init(pulse timerPeriodInterface) {
 	s.pulse = pulse
 }
 
@@ -207,7 +207,7 @@ func (s *Sweep) targetPeriod() uint16 {
 	rawPeriod := s.pulse.getPeriod()
 	change := rawPeriod >> s.shift
 
-	// The two pulse channels have their adders' carry inputs wired differently
+	// The two period channels have their adders' carry inputs wired differently
 	// which produces different results when each channel's change amount is made negative:
 	//
 	// Pulse 1 adds the ones' complement (−c − 1).
@@ -222,4 +222,44 @@ func (s *Sweep) targetPeriod() uint16 {
 
 	// Whenever the current period changes for any reason, whether by $400x writes or by sweep,
 	// the target period also changes.
+}
+
+type LinearCounter struct {
+	counterReload uint8
+	counter       uint8
+
+	reload  bool
+	control bool
+}
+
+func (l *LinearCounter) reset() {
+	l.counter = 0
+	l.counterReload = 0
+	l.reload = false
+	l.control = false
+}
+
+func (l *LinearCounter) setup(control bool, reload uint8) {
+	l.control = control
+	l.counterReload = reload
+}
+
+func (l *LinearCounter) start() {
+	l.reload = true
+}
+
+// When the frame counter generates a linear counter clock, the following actions occur in order:
+//
+// If the linear counter reload flag is set, the linear counter is reloaded with the counter reload value, otherwise if
+// the linear counter is non-zero, it is decremented.
+// If the control flag is clear, the linear counter reload flag is cleared.
+func (l *LinearCounter) tick() {
+	if l.reload {
+		l.counter = l.counterReload
+	} else if l.counter > 0 {
+		l.counter--
+	}
+	if !l.control {
+		l.reload = false
+	}
 }

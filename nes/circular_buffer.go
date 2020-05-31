@@ -19,13 +19,13 @@ type CircularBuffer struct {
 	writeWait chan bool
 }
 
-func NewCircularBuffer(size int) CircularBuffer {
+func NewCircularBuffer(size int) *CircularBuffer {
 	if size < 2 {
 		panic("Invalid size for the CircularBuffer (<2)")
 	}
 	buffer := CircularBuffer{}
 	buffer.reset(size)
-	return buffer
+	return &buffer
 }
 
 func (c *CircularBuffer) Write(value float64, wait bool) error {
@@ -46,37 +46,40 @@ func (c *CircularBuffer) Write(value float64, wait bool) error {
 	return nil
 }
 
-func (c *CircularBuffer) ReadInto(slice []float64) (int, error) {
+func (c *CircularBuffer) ReadInto(slice []float32) int {
 	c.wait.L.Lock()
 	defer c.wait.L.Unlock()
 
-	availableItems := c.usedEntries()
-	if len(slice) < availableItems {
-		availableItems = len(slice)
+	if len(slice) > c.available() {
+		//go fmt.Print("#")
+		return 0
 	}
-	for i := 0; i < availableItems; i++ {
-		slice[i] = c.buffer[c.tail]
+
+	for i := 0; i < len(slice); i++ {
+		slice[i] = float32(c.buffer[c.tail])
 		c.tail = c.getNext(c.tail)
 	}
 
-	return availableItems, nil
+	c.wait.Signal()
+	return len(slice)
 }
 func (c *CircularBuffer) ReadInto2(slice [][2]float64) int {
 	c.wait.L.Lock()
 	defer c.wait.L.Unlock()
 
-	availableItems := c.usedEntries()
-	if len(slice) < availableItems {
-		availableItems = len(slice)
+	if len(slice) > c.available() {
+		//go fmt.Printf("W: %v R: %v F-S: %v N-S: %v N-F: %v\n", writes, reads, fr.Sub(start), out.Sub(start), out.Sub(fr))
+		return 0
 	}
-	for i := 0; i < availableItems; i++ {
+
+	for i := 0; i < len(slice); i++ {
 		slice[i][0] = c.buffer[c.tail]
 		slice[i][1] = c.buffer[c.tail]
 		c.tail = c.getNext(c.tail)
 	}
 
 	c.wait.Signal()
-	return availableItems
+	return len(slice)
 }
 
 func (c *CircularBuffer) Read() (float64, error) {
@@ -96,7 +99,7 @@ func (c *CircularBuffer) Read() (float64, error) {
 }
 
 // internal helpers
-func (c *CircularBuffer) usedEntries() int {
+func (c *CircularBuffer) available() int {
 	if c.isEmpty() {
 		return 0
 	}
@@ -106,6 +109,12 @@ func (c *CircularBuffer) usedEntries() int {
 	}
 
 	return c.head + c.size - c.tail
+}
+func (c *CircularBuffer) Available() int {
+	c.wait.L.Lock()
+	defer c.wait.L.Unlock()
+
+	return c.available()
 }
 
 // Empty because we want to read from tail but

@@ -1,8 +1,7 @@
 package waves
 
 type Pulse struct {
-	dutyCycleMode  uint8 // 0,1,2,3
-	lenCounterHalt bool  // 1 means go forever
+	dutyCycleMode uint8 // 0,1,2,3
 
 	constVolume  bool // these two are         1
 	envelopeFlag bool // opposites (same bit)  0

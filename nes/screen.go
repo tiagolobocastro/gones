@@ -69,14 +69,6 @@ func (s *screen) runThread() {
 }
 
 func (s *screen) runner() {
-	go func() {
-		tmr := time.Tick(time.Second / 240)
-		for {
-			s.nes.Step((time.Second / 240).Seconds())
-			<-tmr
-		}
-	}()
-
 	lastLoopFrames := 0
 	for !s.window.Closed() {
 

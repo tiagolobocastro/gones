@@ -12,6 +12,8 @@ type Apu struct {
 	pulse1 waves.Pulse
 	pulse2 waves.Pulse
 
+	triangle waves.Triangle
+
 	clock   uint
 	verbose bool
 	enabled bool
@@ -39,6 +41,7 @@ func (a *Apu) reset() {
 
 	a.pulse1.Init(true)
 	a.pulse2.Init(false)
+	a.triangle.Init()
 
 	a.speaker.Reset()
 	a.sampleTicks = float64(NesBaseFrequency) / float64(a.speaker.SampleRate())
@@ -61,6 +64,9 @@ func (a *Apu) init(busInt busExtInt, verbose bool, logAudio bool, audioLib Audio
 	a.speaker = NewSpeaker(a.audioLib)
 
 	a.reset()
+}
+func (a *Apu) Play() {
+	a.speaker.Play()
 }
 func (a *Apu) Stop() {
 	a.reset()
@@ -115,10 +121,10 @@ func (a *Apu) tick() {
 	// necessary modification
 	a.frameTick()
 	if (a.clock % 2) == 0 {
-		// todo: change pulse to use CPU cycles instead!
 		a.pulse1.Tick()
 		a.pulse2.Tick()
 	}
+	a.triangle.Tick()
 	a.sample()
 }
 
@@ -126,22 +132,30 @@ func (a *Apu) sample() {
 	if a.clock >= uint(a.sampleTargetTicks) {
 		a.sampleTargetTicks += a.sampleTicks
 
-		mix := a.mixPulses(a.pulse1.Sample(), a.pulse2.Sample())
+		mixPulses := a.mixPulses(a.pulse1.Sample(), a.pulse2.Sample())
+		//mixPulses := 0.0
+		triangle := a.triangle.Sample()
+		//triangle := 0.0
+		mix := 0.00851*triangle + mixPulses
+
 		a.addSample(mix)
 	}
 }
 
-func (a *Apu) triangleLinearTick() {
+func (a *Apu) audioBufferReady() bool {
+	return a.speaker.BufferReady()
 }
+
 func (a *Apu) quarterFrameTick() {
-	a.triangleLinearTick()
 	a.pulse1.QuarterFrameTick()
 	a.pulse2.QuarterFrameTick()
+	a.triangle.QuarterFrameTick()
 }
 
 func (a *Apu) halfFrameTick() {
 	a.pulse1.HalfFrameTick()
 	a.pulse2.HalfFrameTick()
+	a.triangle.HalfFrameTick()
 }
 
 func (a *Apu) frameTick() {
@@ -184,6 +198,10 @@ func (a *Apu) write8(addr uint16, val uint8) {
 		a.pulse1.Write8(addr, val)
 	case addr >= 0x4004 && addr <= 0x4007:
 		a.pulse2.Write8(addr, val)
+	case addr == 0x4008, addr == 0x4009:
+		a.triangle.Write8(addr, val)
+	case addr == 0x400A, addr == 0x400B:
+		a.triangle.Write8(addr, val)
 	case addr == 0x4017:
 		a.frameMode = uint(val & 0x80)
 		a.frameStep = 0

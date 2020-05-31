@@ -139,8 +139,10 @@ type AudioSpeaker interface {
 	Init()
 	Reset()
 	Stop()
+	Play()
 	Sample(float64) bool
 	SampleRate() int
+	BufferReady() bool
 }
 
 func NewSpeaker(lib AudioLib) AudioSpeaker {

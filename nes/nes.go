@@ -30,6 +30,21 @@ func (n *nes) Run() {
 	if n.freeRun == true {
 		n.runFree()
 	} else {
+		tmr := time.Tick(time.Second / 240)
+
+		for !n.ApuBufferReady() {
+			// pre-fill enough sound samples
+			n.Step((time.Second / 240).Seconds())
+			<-tmr
+		}
+		go func() {
+			tmr := time.Tick(time.Second / 240)
+			n.apu.Play()
+			for {
+				n.Step((time.Second / 240).Seconds())
+				<-tmr
+			}
+		}()
 		for {
 			time.Sleep(time.Second * 100)
 		}
@@ -131,6 +146,10 @@ func (n *nes) Test() {
 		n.ppu.ticks(3 * ticks)
 		n.dma.ticks(ticks)
 	}
+}
+
+func (n *nes) ApuBufferReady() bool {
+	return n.apu.audioBufferReady()
 }
 
 func (n *nes) runFree() {

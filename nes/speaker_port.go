@@ -2,63 +2,52 @@ package gones
 
 import (
 	"github.com/gordonklaus/portaudio"
-	"sync"
 )
 
 type SpeakerPort struct {
-	sampleChan chan float64
-	sampleRate int
-
-	doOnce sync.Once
-	stream *portaudio.Stream
+	buffer  *CircularBuffer
+	playing bool
+	stream  *portaudio.Stream
 }
 
 func (s *SpeakerPort) Init() {
-	s.doOnce.Do(func() {
-		chk(portaudio.Initialize())
-		h, err := portaudio.DefaultHostApi()
-		chk(err)
-		p := portaudio.HighLatencyParameters(nil, h.DefaultOutputDevice)
-		p.Output.Channels = 1
-		s.stream, err = portaudio.OpenStream(p, s.processAudio)
-		chk(err)
-		s.sampleRate = int(p.SampleRate)
-		s.sampleChan = make(chan float64, s.sampleRate/10)
-		chk(s.stream.Start())
-	})
+	chk(portaudio.Initialize())
+	h, err := portaudio.DefaultHostApi()
+	chk(err)
+	p := portaudio.HighLatencyParameters(nil, h.DefaultOutputDevice)
+	p.Output.Channels = 1
+	s.stream, err = portaudio.OpenStream(p, s.processAudio)
+	chk(err)
+	s.playing = false
+	s.buffer = NewCircularBuffer(int(p.SampleRate))
 }
 func (s *SpeakerPort) Reset() {
-	s.stream.Stop()
+	if s.playing {
+		chk(s.stream.Stop())
+		chk(s.stream.Start())
+	}
+}
+func (s *SpeakerPort) Play() {
 	chk(s.stream.Start())
+	s.playing = true
 }
 func (s *SpeakerPort) Stop() {
-	if s.stream != nil {
-		s.stream.Close()
-	}
+	_ = s.stream.Close()
+	s.playing = false
+}
+func (s *SpeakerPort) BufferReady() bool {
+	return s.buffer.available() > int(s.stream.Info().SampleRate*0.3)
 }
 
 func (s *SpeakerPort) Sample(sample float64) bool {
-	select {
-	case s.sampleChan <- sample:
-		return true
-	default:
-		return false
-	}
+	return s.buffer.Write(sample, false) == nil
 }
 func (s *SpeakerPort) SampleRate() int {
-	return s.sampleRate
+	return int(s.stream.Info().SampleRate)
 }
 
 func (s *SpeakerPort) processAudio(out []float32) {
-	sample := float32(0.0)
-	for i := range out {
-		select {
-		case apuSample := <-s.sampleChan:
-			sample = float32(apuSample)
-		default:
-		}
-		out[i] = sample
-	}
+	_ = s.buffer.ReadInto(out)
 }
 
 func chk(err error) {

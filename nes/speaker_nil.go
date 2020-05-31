@@ -10,6 +10,7 @@ func (s *SpeakerNil) Init() {
 	s.sampleChan = make(chan float64, s.sampleRate/10)
 }
 func (s *SpeakerNil) Reset() {}
+func (s *SpeakerNil) Play()  {}
 func (s *SpeakerNil) Stop()  {}
 
 func (s *SpeakerNil) Sample(float64) bool {
@@ -17,4 +18,7 @@ func (s *SpeakerNil) Sample(float64) bool {
 }
 func (s *SpeakerNil) SampleRate() int {
 	return s.sampleRate
+}
+func (s *SpeakerNil) BufferReady() bool {
+	return true
 }
