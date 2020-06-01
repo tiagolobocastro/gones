@@ -132,8 +132,8 @@ func (a *Apu) sample() {
 	if a.clock >= uint(a.sampleTargetTicks) {
 		a.sampleTargetTicks += a.sampleTicks
 
-		mixPulses := a.mixPulses(a.pulse1.Sample(), a.pulse2.Sample())
-		//mixPulses := 0.0
+		//mixPulses := a.mixPulses(a.pulse1.Sample(), a.pulse2.Sample())
+		mixPulses := 0.0
 		triangle := a.triangle.Sample()
 		//triangle := 0.0
 		mix := 0.00851*triangle + mixPulses

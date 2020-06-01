@@ -1,4 +1,4 @@
-package gones
+package speakers
 
 import (
 	"github.com/gordonklaus/portaudio"

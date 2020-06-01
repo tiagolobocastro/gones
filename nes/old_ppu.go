@@ -116,6 +116,8 @@ func (p *Ppu) raise(flag uint8) {
 
 		select {
 		case p.frameBuffer.frameUpdated <- true:
+		// todo: control "vsync" channel
+		//default:
 		}
 
 		p.regs[PPUSTATUS].val |= 0x80

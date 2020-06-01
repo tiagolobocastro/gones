@@ -23,9 +23,6 @@ type screen struct {
 
 	framebuffer framebuffer
 
-	// free run -> no vsync
-	freeRun bool
-
 	// FPS stats
 	fpsChannel   <-chan time.Time
 	fpsLastFrame int
@@ -37,9 +34,8 @@ func (s *screen) init(nes *nes) {
 	s.setSprite()
 }
 
-func (s *screen) run(freeRun bool) {
+func (s *screen) run() {
 	go func() {
-		s.freeRun = freeRun
 		runtime.LockOSThread()
 		pixelgl.Run(s.runThread)
 		os.Exit(0)
@@ -61,11 +57,7 @@ func (s *screen) runThread() {
 	s.fpsChannel = time.Tick(time.Second)
 	s.fpsLastFrame = 0
 
-	if s.freeRun {
-		s.freeRunner()
-	} else {
-		s.runner()
-	}
+	s.runner()
 }
 
 func (s *screen) runner() {
@@ -77,7 +69,7 @@ func (s *screen) runner() {
 		frameDiff := s.framebuffer.frames - lastLoopFrames
 		if frameDiff > 0 {
 			if frameDiff > 1 {
-				fmt.Printf("Ups, skipped %v frames!\n", frameDiff)
+				fmt.Printf("Oops, skipped %v frames!\n", frameDiff)
 			}
 
 			s.draw()
@@ -132,29 +124,6 @@ func (s *screen) updateFpsTitle() {
 
 		s.window.SetTitle(fmt.Sprintf("GoNes | FPS: %d", frames))
 	default:
-	}
-}
-
-func (s *screen) freeRunner() {
-	lastLoopFrames := 0
-	for !s.window.Closed() {
-		s.nes.Step((time.Second / 240).Seconds())
-		select {
-		case <-s.framebuffer.frameUpdated:
-			frameDiff := s.framebuffer.frames - lastLoopFrames
-			if frameDiff > 0 {
-				if frameDiff > 1 {
-					fmt.Printf("Ups, skipped %v frames!\n", frameDiff)
-				}
-
-				s.draw()
-				s.window.Update()
-				lastLoopFrames = s.framebuffer.frames
-			}
-		}
-
-		s.updateFpsTitle()
-		s.updateControllers()
 	}
 }
 

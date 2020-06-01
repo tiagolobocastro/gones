@@ -1,4 +1,4 @@
-package gones
+package speakers
 
 type SpeakerNil struct {
 	sampleChan chan float64

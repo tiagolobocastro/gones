@@ -1,6 +1,7 @@
 package gones
 
 import (
+	"github.com/tiagolobocastro/gones/nes/speakers"
 	"image/color"
 )
 
@@ -149,11 +150,11 @@ func NewSpeaker(lib AudioLib) AudioSpeaker {
 	var speaker AudioSpeaker
 	switch lib {
 	case Nil:
-		speaker = new(SpeakerNil)
+		speaker = new(speakers.SpeakerNil)
 	case Beep:
-		speaker = new(SpeakerBeep)
+		speaker = new(speakers.SpeakerBeep)
 	case PortAudio:
-		speaker = new(SpeakerPort)
+		speaker = new(speakers.SpeakerPort)
 	default:
 		panic("Unknown speaker type!")
 	}

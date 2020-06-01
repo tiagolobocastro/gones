@@ -26,12 +26,11 @@ func (n *nes) Reset() {
 }
 
 func (n *nes) Run() {
-	n.screen.run(n.freeRun)
+	n.screen.run()
 	if n.freeRun == true {
 		n.runFree()
 	} else {
 		tmr := time.Tick(time.Second / 240)
-
 		for !n.ApuBufferReady() {
 			// pre-fill enough sound samples
 			n.Step((time.Second / 240).Seconds())
@@ -101,7 +100,6 @@ func (n *nes) Step(seconds float64) {
 	cyclesPerSecond *= seconds
 	runCycles := int(cyclesPerSecond)
 
-	//frames := n.ppu.frameBuffer.frames
 	for runCycles > 0 {
 
 		ticks := 1
@@ -119,10 +117,6 @@ func (n *nes) Step(seconds float64) {
 		n.apu.ticks(ticks)
 
 		runCycles -= ticks
-		// use this to step a whole frame at a time
-		// if n.ppu.frameBuffer.frames > frames {
-		//	return
-		// }
 	}
 
 	if n.resetRq {
@@ -153,16 +147,16 @@ func (n *nes) ApuBufferReady() bool {
 }
 
 func (n *nes) runFree() {
-	for {
-		ticks := 1
-		if !n.dma.active() {
-			// cpu stalled whilst dma is active
-			ticks = n.cpu.tick()
-		}
+	for !n.ApuBufferReady() {
+		// pre-fill enough sound samples
+		n.Step((time.Second / 240).Seconds())
+	}
+	n.apu.Play()
 
-		// 3 ppu ticks per 1 cpu
-		n.ppu.ticks(3 * ticks)
-		n.dma.ticks(ticks)
+	for {
+		for {
+			n.Step(time.Second.Seconds())
+		}
 	}
 }
 

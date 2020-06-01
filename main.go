@@ -33,6 +33,7 @@ func main() {
 	audioLib := flag.String("audio", defaultAudioLibrary, "beep, portaudio or nil")
 	logAudio := flag.Bool("logaudio", false, "log audio sampling average every second (debug only)")
 	verbose := flag.Bool("verbose", false, "verbose logs (debug only)")
+	freeRun := flag.Bool("freerun", false, "run as fast as possible (debug only)")
 	flag.CommandLine.Parse(os.Args[positionalArgs+1:])
 
 	if err := validateINesPath(romPath); err != nil {
@@ -44,7 +45,7 @@ func main() {
 	nes := gones.NewNES(
 		gones.CartPath(romPath),
 		gones.Verbose(*verbose),
-		gones.FreeRun(false),
+		gones.FreeRun(*freeRun),
 		gones.AudioLibrary(*audioLib),
 		gones.AudioLogging(*logAudio),
 	)
