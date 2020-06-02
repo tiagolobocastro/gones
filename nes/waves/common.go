@@ -60,6 +60,36 @@ func (d *DurationCounter) mute() bool {
 	return d.counter == 0
 }
 
+type Timer struct {
+	clock uint
+
+	timer  uint16 // 12bit timer, max val is 4068
+	reload uint16
+}
+
+func (t *Timer) reset() {
+	t.clock = 0
+	t.timer = 0
+	t.reload = 0
+}
+func (t *Timer) set(reload uint16) {
+	t.reload = reload
+}
+func (t *Timer) tick() bool {
+	t.clock++
+
+	if t.timer > 0 {
+		t.timer--
+		return false
+	} else {
+		t.timer = t.reload
+		return true
+	}
+}
+func (t *Timer) value() uint8 {
+	return 0
+}
+
 type Sequencer struct {
 	clock uint
 

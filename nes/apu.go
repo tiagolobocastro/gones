@@ -14,6 +14,8 @@ type Apu struct {
 
 	triangle waves.Triangle
 
+	noise waves.Noise
+
 	clock   uint
 	verbose bool
 	enabled bool
@@ -42,6 +44,7 @@ func (a *Apu) reset() {
 	a.pulse1.Init(true)
 	a.pulse2.Init(false)
 	a.triangle.Init()
+	a.noise.Init()
 
 	a.speaker.Reset()
 	a.sampleTicks = float64(NesBaseFrequency) / float64(a.speaker.SampleRate())
@@ -123,6 +126,7 @@ func (a *Apu) tick() {
 	if (a.clock % 2) == 0 {
 		a.pulse1.Tick()
 		a.pulse2.Tick()
+		a.noise.Tick()
 	}
 	a.triangle.Tick()
 	a.sample()
@@ -132,11 +136,13 @@ func (a *Apu) sample() {
 	if a.clock >= uint(a.sampleTargetTicks) {
 		a.sampleTargetTicks += a.sampleTicks
 
-		//mixPulses := a.mixPulses(a.pulse1.Sample(), a.pulse2.Sample())
-		mixPulses := 0.0
+		mixPulses := a.mixPulses(a.pulse1.Sample(), a.pulse2.Sample())
+		//mixPulses := 0.0
 		triangle := a.triangle.Sample()
 		//triangle := 0.0
-		mix := 0.00851*triangle + mixPulses
+		noise := a.noise.Sample()
+		//noise := 0.0
+		mix := 0.00851*triangle + 0.00494*noise + mixPulses
 
 		a.addSample(mix)
 	}
@@ -150,12 +156,14 @@ func (a *Apu) quarterFrameTick() {
 	a.pulse1.QuarterFrameTick()
 	a.pulse2.QuarterFrameTick()
 	a.triangle.QuarterFrameTick()
+	a.noise.QuarterFrameTick()
 }
 
 func (a *Apu) halfFrameTick() {
 	a.pulse1.HalfFrameTick()
 	a.pulse2.HalfFrameTick()
 	a.triangle.HalfFrameTick()
+	a.noise.HalfFrameTick()
 }
 
 func (a *Apu) frameTick() {
@@ -202,6 +210,8 @@ func (a *Apu) write8(addr uint16, val uint8) {
 		a.triangle.Write8(addr, val)
 	case addr == 0x400A, addr == 0x400B:
 		a.triangle.Write8(addr, val)
+	case addr == 0x400C, addr == 0x400E, addr == 0x400F:
+		a.noise.Write8(addr, val)
 	case addr == 0x4017:
 		a.frameMode = uint(val & 0x80)
 		a.frameStep = 0

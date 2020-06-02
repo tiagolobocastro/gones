@@ -1,19 +1,15 @@
 package waves
 
 type Triangle struct {
-	lenCounterHalt bool // 1 means go forever
-
 	volume uint8
-
-	lenCounterLoad uint8
-	lenCounter     uint8
 
 	sequencer Sequencer
 	duration  DurationCounter
 	linearCnt LinearCounter
 
-	clock  uint64
-	period uint16
+	clock   uint64
+	period  uint16
+	enabled bool
 }
 
 func (t *Triangle) Write8(addr uint16, val uint8) {

@@ -3,14 +3,8 @@ package waves
 type Pulse struct {
 	dutyCycleMode uint8 // 0,1,2,3
 
-	constVolume  bool // these two are         1
-	envelopeFlag bool // opposites (same bit)  0
-
-	volume       uint8 // in case of const volume
-	envelopeDivP uint8 // same 8b as above but when envelope is set
-
-	lenCounterLoad uint8
-	lenCounter     uint8
+	constVolume bool  // these two are         1
+	volume      uint8 // in case of const volume
 
 	pulseOne bool // 1 if true else 2
 
@@ -19,8 +13,9 @@ type Pulse struct {
 	envelope  Envelope
 	sweep     Sweep
 
-	clock  uint64
-	period uint16
+	clock   uint64
+	period  uint16
+	enabled bool
 }
 
 func (p *Pulse) setPeriod(period uint16) {
