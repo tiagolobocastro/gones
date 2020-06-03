@@ -5,7 +5,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/tiagolobocastro/gones/nes/common"
 	"github.com/tiagolobocastro/gones/nes/waves"
 )
 
@@ -60,7 +59,7 @@ func (a *Apu) reset() {
 	a.frameStep = 0
 	a.frameMode = 0
 }
-func (a *Apu) init(busInt common.BusExtInt, verbose bool, logAudio bool, audioLib AudioLib) {
+func (a *Apu) init(verbose bool, logAudio bool, audioLib AudioLib) {
 	a.verbose = verbose
 	a.logAudio = logAudio
 	a.audioLib = audioLib

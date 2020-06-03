@@ -33,11 +33,14 @@ func main() {
 	audioLib := flag.String("audio", defaultAudioLibrary, "beep, portaudio or nil")
 	logAudio := flag.Bool("logaudio", false, "log audio sampling average every second (debug only)")
 	verbose := flag.Bool("verbose", false, "verbose logs (debug only)")
-	freeRun := flag.Bool("freerun", false, "run as fast as possible (debug only)")
-	flag.CommandLine.Parse(os.Args[positionalArgs+1:])
+	freeRun := flag.Bool("freerun", false, "run as fast as possible with double buffered sync (debug only)")
+	if err := flag.CommandLine.Parse(os.Args[positionalArgs+1:]); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "Failed to parse the commandline parameters, err=%v\n", err)
+		return
+	}
 
 	if err := validateINesPath(romPath); err != nil {
-		fmt.Printf("Failed to start GoNes, err=%v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Rom image path is not valid? err=%v\n", err)
 		return
 	}
 

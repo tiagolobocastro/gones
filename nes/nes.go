@@ -68,7 +68,7 @@ func (n *nes) init() {
 	n.cpu.Init(n.bus.GetBusInt(MapCPUId), n.verbose)
 	n.ppu.Init(n.bus.GetBusInt(MapPPUId), n.verbose, &n.cpu, &n.screen.framebuffer)
 	n.dma.init(n.bus.GetBusInt(MapDMAId))
-	n.apu.init(n.bus.GetBusInt(MapAPUId), n.verbose, n.audioLog, n.audioLib)
+	n.apu.init(n.verbose, n.audioLog, n.audioLib)
 
 	n.bus.Connect(MapCPUId, &cpuMapper{n})
 	n.bus.Connect(MapPPUId, &ppuMapper{n})

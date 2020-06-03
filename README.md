@@ -64,3 +64,9 @@ Usage of gones:
 
 -rom string 
 >path to the iNes Rom file to run 
+
+-verbose flag
+>verbose logs (debug only)
+
+-freerun flag
+>run as fast as possible with double buffered sync (debug only)
