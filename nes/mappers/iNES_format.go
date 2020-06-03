@@ -100,14 +100,14 @@ func (h *iNESHeader) Version() (iNESFormat, error) {
 }
 
 func (h *iNESHeader) Config() (iNESConfig, error) {
-	iNes, err := NewINES(h)
+	iNes, err := newINES(h)
 	if err != nil {
 		return iNESConfig{}, err
 	}
 	return iNes.Config(), nil
 }
 
-func NewINES(header *iNESHeader) (iNES, error) {
+func newINES(header *iNESHeader) (iNES, error) {
 	version, err := header.Version()
 	if err != nil {
 		return nil, err

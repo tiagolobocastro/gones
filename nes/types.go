@@ -1,10 +1,10 @@
 package gones
 
 import (
-	"image/color"
-
 	"github.com/tiagolobocastro/gones/nes/common"
+	cpu2 "github.com/tiagolobocastro/gones/nes/cpu"
 	"github.com/tiagolobocastro/gones/nes/mappers"
+	ppu2 "github.com/tiagolobocastro/gones/nes/ppu"
 	"github.com/tiagolobocastro/gones/nes/speakers"
 )
 
@@ -17,43 +17,13 @@ const (
 	screenYHeight    = frameYHeight * screenFrameRatio
 )
 
-const (
-	// allows for validity test
-	ModeInvalid = iota
-	ModeZeroPage
-	ModeIndexedZeroPageX
-	ModeIndexedZeroPageY
-	ModeAbsolute
-	ModeIndexedAbsoluteX
-	ModeIndexedAbsoluteY
-	ModeIndirect
-	ModeImplied
-	ModeAccumulator
-	ModeImmediate
-	ModeRelative
-	ModeIndexedIndirectX
-	ModeIndirectIndexedY
-)
-
-type framebuffer struct {
-	buffer0 []color.RGBA
-	buffer1 []color.RGBA
-
-	// 0 - backBuffer, 1 - frontBuffer
-	frameIndex   int
-	frameUpdated chan bool
-
-	// number of frames
-	frames int
-}
-
 type nes struct {
 	bus common.Bus
 
-	cpu  Cpu
+	cpu  cpu2.Cpu
 	ram  common.Ram
 	cart mappers.Cartridge
-	ppu  Ppu
+	ppu  ppu2.Ppu
 	dma  dma
 	apu  Apu
 	ctrl controllers
@@ -76,11 +46,6 @@ const (
 	MapDMAId
 	MapAPUId
 )
-
-type iInterrupt interface {
-	raise(uint8)
-	clear(uint8)
-}
 
 type AudioLib string
 
@@ -117,7 +82,8 @@ func NewSpeaker(lib AudioLib) AudioSpeaker {
 }
 
 const NesBaseFrequency = 1789773
-const NesApuFrequency = NesBaseFrequency / 2
+
+//const NesApuFrequency = NesBaseFrequency / 2
 const NesApuFrameCycles = 7457
 const NesApuVolumeGain = 0.012
 

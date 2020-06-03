@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/pixelgl"
+	"github.com/tiagolobocastro/gones/nes/common"
 	"image/color"
 	"os"
 	"runtime"
@@ -21,7 +22,7 @@ type screen struct {
 	buffer1 *pixel.PictureData
 	sprite  *pixel.Sprite
 
-	framebuffer framebuffer
+	framebuffer common.Framebuffer
 
 	// FPS stats
 	fpsChannel   <-chan time.Time
@@ -64,9 +65,9 @@ func (s *screen) runner() {
 	lastLoopFrames := 0
 	for !s.window.Closed() {
 
-		<-s.framebuffer.frameUpdated
+		<-s.framebuffer.FrameUpdated
 
-		frameDiff := s.framebuffer.frames - lastLoopFrames
+		frameDiff := s.framebuffer.Frames - lastLoopFrames
 		if frameDiff > 0 {
 			if frameDiff > 1 {
 				fmt.Printf("Oops, skipped %v frames!\n", frameDiff)
@@ -74,7 +75,7 @@ func (s *screen) runner() {
 
 			s.draw()
 			s.window.Update()
-			lastLoopFrames = s.framebuffer.frames
+			lastLoopFrames = s.framebuffer.Frames
 		}
 
 		s.updateFpsTitle()
@@ -119,8 +120,8 @@ func (s *screen) updateControllers() {
 func (s *screen) updateFpsTitle() {
 	select {
 	case <-s.fpsChannel:
-		frames := s.framebuffer.frames - s.fpsLastFrame
-		s.fpsLastFrame = s.framebuffer.frames
+		frames := s.framebuffer.Frames - s.fpsLastFrame
+		s.fpsLastFrame = s.framebuffer.Frames
 
 		s.window.SetTitle(fmt.Sprintf("GoNes | FPS: %d", frames))
 	default:
@@ -135,7 +136,7 @@ func (s *screen) draw() {
 }
 
 func (s *screen) updateSprite() {
-	if s.framebuffer.frameIndex == 1 {
+	if s.framebuffer.FrameIndex == 1 {
 		// ppu is drawing new pixels on buffer1, which means the stable data is in buffer0
 		s.sprite = pixel.NewSprite(s.buffer0, pixel.R(0, 0, frameXWidth, frameYHeight))
 	} else {
@@ -157,12 +158,12 @@ func (s *screen) setSprite() {
 		Rect:   pixel.R(0, 0, frameXWidth, frameYHeight),
 	}
 
-	s.framebuffer = framebuffer{
-		buffer0:      s.buffer0.Pix,
-		buffer1:      s.buffer1.Pix,
-		frameIndex:   0,
-		frameUpdated: make(chan bool),
-		frames:       0,
+	s.framebuffer = common.Framebuffer{
+		Buffer0:      s.buffer0.Pix,
+		Buffer1:      s.buffer1.Pix,
+		FrameIndex:   0,
+		FrameUpdated: make(chan bool),
+		Frames:       0,
 	}
 
 	s.updateSprite()

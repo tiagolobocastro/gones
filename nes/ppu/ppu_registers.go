@@ -1,6 +1,9 @@
-package gones
+package ppu
 
-import "github.com/tiagolobocastro/gones/nes/common"
+import (
+	"github.com/tiagolobocastro/gones/nes/common"
+	"github.com/tiagolobocastro/gones/nes/cpu"
+)
 
 const (
 	PPUCTRL = iota
@@ -230,7 +233,7 @@ func (p *Ppu) setLastRegWrite(val uint8) {
 func (p *Ppu) readPPUStatus() uint8 {
 	val := p.regs[PPUSTATUS].Val
 
-	p.clear(cpuIntNMI) // clear vblank
+	p.clear(cpu.CpuIntNMI) // clear vblank
 	p.wToggle.Val = 0
 	// Race Condition Warning: Reading PPUSTATUS within two cycles of the start of vertical blank will return 0
 	// in bit 7 but clear the latch anyway, causing NMI to not occur that frame. See NMI and PPU_frame_timing for details.

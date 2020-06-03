@@ -65,8 +65,8 @@ func (n *nes) init() {
 	n.ctrl.init()
 	n.screen.init(n)
 
-	n.cpu.init(n.bus.GetBusInt(MapCPUId), n.verbose)
-	n.ppu.init(n.bus.GetBusInt(MapPPUId), n.verbose, &n.cpu, &n.screen.framebuffer)
+	n.cpu.Init(n.bus.GetBusInt(MapCPUId), n.verbose)
+	n.ppu.Init(n.bus.GetBusInt(MapPPUId), n.verbose, &n.cpu, &n.screen.framebuffer)
 	n.dma.init(n.bus.GetBusInt(MapDMAId))
 	n.apu.init(n.bus.GetBusInt(MapAPUId), n.verbose, n.audioLog, n.audioLib)
 
@@ -74,28 +74,11 @@ func (n *nes) init() {
 	n.bus.Connect(MapPPUId, &ppuMapper{n})
 	n.bus.Connect(MapDMAId, &dmaMapper{n})
 
-	n.cpu.reset()
+	n.cpu.Reset()
 }
 
 func (n *nes) stats() {
-	nValid := 0
-	nTotal := 0
-	nImp := 0
-	for _, in := range n.cpu.ins {
-		if in.opName == "" {
-			continue
-		}
-
-		nTotal += 1
-		if in.opLength > 0 {
-			nValid += 1
-
-			if in.implemented {
-				nImp += 1
-			}
-		}
-	}
-	log.Printf("\nTotal instructions: %d\nValid instructions: %d\nImplemented instructions: %d\nRemainingValid: %d\n", nTotal, nValid, nImp, nValid-nImp)
+	n.cpu.Stats()
 }
 
 func (n *nes) Step(seconds float64) {
@@ -108,11 +91,11 @@ func (n *nes) Step(seconds float64) {
 		ticks := 1
 		if !n.dma.active() {
 			// cpu stalled whilst dma is active
-			ticks = n.cpu.tick()
+			ticks = n.cpu.Tick()
 		}
 
 		// 3 ppu ticks per 1 cpu
-		n.ppu.ticks(3 * ticks)
+		n.ppu.Ticks(3 * ticks)
 		n.dma.ticks(ticks)
 
 		// since we are more sensitive to sound
@@ -132,7 +115,7 @@ func (n *nes) Test() {
 		ticks := 1
 		if !n.dma.active() {
 			// cpu stalled whilst dma is active
-			ticks = n.cpu.tick()
+			ticks = n.cpu.Tick()
 		}
 
 		if ticks == 0 {
@@ -140,7 +123,7 @@ func (n *nes) Test() {
 		}
 
 		// 3 ppu ticks per 1 cpu
-		n.ppu.ticks(3 * ticks)
+		n.ppu.Ticks(3 * ticks)
 		n.dma.ticks(ticks)
 	}
 }
@@ -165,9 +148,9 @@ func (n *nes) runFree() {
 
 func (n *nes) reset() {
 	// probably need to stall them first
-	n.ppu.reset()
+	n.ppu.Reset()
 	n.dma.reset()
-	n.cpu.reset()
+	n.cpu.Reset()
 	n.apu.reset()
 
 	n.resetRq = false

@@ -1,4 +1,6 @@
-package gones
+package ppu
+
+import "github.com/tiagolobocastro/gones/nes/cpu"
 
 func (p *Ppu) updateShifter() {
 	// palette and pixel index
@@ -175,16 +177,16 @@ func (p *Ppu) exec() {
 
 		// what gets drawn based on transparency (index==0) and priority
 		if p.bgIndex == 0 && p.fgIndex == 0 {
-			p.drawPixel(x, y, p.palette.nesPalette[p.BusInt.Read8(0x3F00)])
+			p.drawPixel(x, y, p.Palette.nesPalette[p.BusInt.Read8(0x3F00)])
 		} else if p.bgIndex > 0 && p.fgIndex == 0 {
-			p.drawPixel(x, y, p.palette.nesPalette[p.BusInt.Read8(0x3F00+uint16(p.bgPalette*4+p.bgIndex))])
+			p.drawPixel(x, y, p.Palette.nesPalette[p.BusInt.Read8(0x3F00+uint16(p.bgPalette*4+p.bgIndex))])
 		} else if p.bgIndex == 0 && p.fgIndex > 0 {
-			p.drawPixel(x, y, p.palette.nesPalette[p.BusInt.Read8(0x3F00+uint16((p.fgPalette+4)*4+p.fgIndex))])
+			p.drawPixel(x, y, p.Palette.nesPalette[p.BusInt.Read8(0x3F00+uint16((p.fgPalette+4)*4+p.fgIndex))])
 		} else if p.bgIndex > 0 && p.fgIndex > 0 {
 			if p.fgPriority {
-				p.drawPixel(x, y, p.palette.nesPalette[p.BusInt.Read8(0x3F00+uint16((p.fgPalette+4)*4+p.fgIndex))])
+				p.drawPixel(x, y, p.Palette.nesPalette[p.BusInt.Read8(0x3F00+uint16((p.fgPalette+4)*4+p.fgIndex))])
 			} else {
-				p.drawPixel(x, y, p.palette.nesPalette[p.BusInt.Read8(0x3F00+uint16(p.bgPalette*4+p.bgIndex))])
+				p.drawPixel(x, y, p.Palette.nesPalette[p.BusInt.Read8(0x3F00+uint16(p.bgPalette*4+p.bgIndex))])
 			}
 		}
 	}
@@ -200,10 +202,10 @@ func (p *Ppu) exec() {
 		}
 	} else if p.cycle == 1 {
 		if vBlankLn {
-			p.raise(cpuIntNMI)
+			p.raise(cpu.CpuIntNMI)
 		} else if preRenderLn {
 			// may already be cleared as reading from PPSTATUS will do so
-			p.clear(cpuIntNMI)
+			p.clear(cpu.CpuIntNMI)
 			p.regs[PPUSTATUS].Clr(statusSpriteOverflow | statusSprite0Hit)
 		}
 	}

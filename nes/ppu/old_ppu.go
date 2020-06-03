@@ -1,6 +1,7 @@
-package gones
+package ppu
 
 import (
+	"github.com/tiagolobocastro/gones/nes/cpu"
 	"image/color"
 
 	"github.com/tiagolobocastro/gones/nes/common"
@@ -75,17 +76,17 @@ type Ppu struct {
 	fgPalette  uint8
 	fgPriority bool
 
-	palette ppuPalette
+	Palette ppuPalette
 
-	frameBuffer *framebuffer
+	frameBuffer *common.Framebuffer
 	buffered    bool
 
-	interrupts iInterrupt
+	interrupts common.IiInterrupt
 
 	finalScroll uint8
 }
 
-func (p *Ppu) init(busInt common.BusInt, verbose bool, interrupts iInterrupt, framebuffer *framebuffer) {
+func (p *Ppu) Init(busInt common.BusInt, verbose bool, interrupts common.IiInterrupt, framebuffer *common.Framebuffer) {
 	p.verbose = verbose
 	p.BusInt = busInt
 	p.interrupts = interrupts
@@ -96,30 +97,30 @@ func (p *Ppu) init(busInt common.BusInt, verbose bool, interrupts iInterrupt, fr
 	p.buffered = true
 
 	p.rOAM.InitNfill(256, 0xfe)
-	p.palette.init()
+	p.Palette.init()
 
 	p.initRegisters()
 	p.clearOAM()
 }
 
-func (p *Ppu) reset() {
-	p.init(p.BusInt, p.verbose, p.interrupts, p.frameBuffer)
+func (p *Ppu) Reset() {
+	p.Init(p.BusInt, p.verbose, p.interrupts, p.frameBuffer)
 }
 
 // interrupt
 // only look at the CPU NMI for now
 // need to implement the interrupt delay as well since the cpu and ppu and not on the same clock
 func (p *Ppu) raise(flag uint8) {
-	if (flag & cpuIntNMI) != 0 {
+	if (flag & cpu.CpuIntNMI) != 0 {
 
-		p.frameBuffer.frames++
+		p.frameBuffer.Frames++
 
 		if p.buffered {
-			p.frameBuffer.frameIndex ^= 1
+			p.frameBuffer.FrameIndex ^= 1
 		}
 
 		select {
-		case p.frameBuffer.frameUpdated <- true:
+		case p.frameBuffer.FrameUpdated <- true:
 			// todo: control "vsync" channel
 			//default:
 		}
@@ -127,14 +128,14 @@ func (p *Ppu) raise(flag uint8) {
 		p.regs[PPUSTATUS].Val |= 0x80
 
 		if p.getNMIVertical() == 1 {
-			p.interrupts.raise(flag & cpuIntNMI)
+			p.interrupts.Raise(flag & cpu.CpuIntNMI)
 		}
 	}
 }
 func (p *Ppu) clear(flag uint8) {
-	if (flag & cpuIntNMI) != 0 {
+	if (flag & cpu.CpuIntNMI) != 0 {
 		p.regs[PPUSTATUS].Val &= 0x7F
-		p.interrupts.clear(flag & cpuIntNMI)
+		p.interrupts.Clear(flag & cpu.CpuIntNMI)
 
 		p.regs[PPUSTATUS].Clr(statusSpriteOverflow | statusSprite0Hit)
 	}
@@ -290,16 +291,16 @@ func (p *Ppu) execOldPpu() {
 
 		// what gets drawn based on transparency (index==0) and priority
 		if p.bgIndex == 0 && p.fgIndex == 0 {
-			p.drawPixel(x, y, p.palette.nesPalette[p.BusInt.Read8(0x3F00)])
+			p.drawPixel(x, y, p.Palette.nesPalette[p.BusInt.Read8(0x3F00)])
 		} else if p.bgIndex > 0 && p.fgIndex == 0 {
-			p.drawPixel(x, y, p.palette.nesPalette[p.BusInt.Read8(0x3F00+uint16(p.bgPalette*4+p.bgIndex))])
+			p.drawPixel(x, y, p.Palette.nesPalette[p.BusInt.Read8(0x3F00+uint16(p.bgPalette*4+p.bgIndex))])
 		} else if p.bgIndex == 0 && p.fgIndex > 0 {
-			p.drawPixel(x, y, p.palette.nesPalette[p.BusInt.Read8(0x3F00+uint16((p.fgPalette+4)*4+p.fgIndex))])
+			p.drawPixel(x, y, p.Palette.nesPalette[p.BusInt.Read8(0x3F00+uint16((p.fgPalette+4)*4+p.fgIndex))])
 		} else if p.bgIndex > 0 && p.fgIndex > 0 {
 			if p.fgPriority {
-				p.drawPixel(x, y, p.palette.nesPalette[p.BusInt.Read8(0x3F00+uint16((p.fgPalette+4)*4+p.fgIndex))])
+				p.drawPixel(x, y, p.Palette.nesPalette[p.BusInt.Read8(0x3F00+uint16((p.fgPalette+4)*4+p.fgIndex))])
 			} else {
-				p.drawPixel(x, y, p.palette.nesPalette[p.BusInt.Read8(0x3F00+uint16(p.bgPalette*4+p.bgIndex))])
+				p.drawPixel(x, y, p.Palette.nesPalette[p.BusInt.Read8(0x3F00+uint16(p.bgPalette*4+p.bgIndex))])
 			}
 		}
 	}
@@ -317,9 +318,9 @@ func (p *Ppu) execOldPpu() {
 		if p.scanLine > 260 {
 			p.scanLine = -1
 			// may already be cleared as reading from PPSTATUS will do so
-			p.clear(cpuIntNMI)
+			p.clear(cpu.CpuIntNMI)
 		} else if p.scanLine == 241 {
-			p.raise(cpuIntNMI)
+			p.raise(cpu.CpuIntNMI)
 		} else if p.scanLine == 242 {
 			p.nameTable = p.regs[PPUCTRL].Val & 0x3
 		}
@@ -327,10 +328,10 @@ func (p *Ppu) execOldPpu() {
 }
 
 func (p *Ppu) drawPixel(x uint8, y uint8, c color.RGBA) {
-	if p.buffered && p.frameBuffer.frameIndex == 0 {
-		p.frameBuffer.buffer0[(240-1-uint16(y))*256+uint16(x)] = c
+	if p.buffered && p.frameBuffer.FrameIndex == 0 {
+		p.frameBuffer.Buffer0[(240-1-uint16(y))*256+uint16(x)] = c
 	} else {
-		p.frameBuffer.buffer1[(240-1-uint16(y))*256+uint16(x)] = c
+		p.frameBuffer.Buffer1[(240-1-uint16(y))*256+uint16(x)] = c
 	}
 }
 
@@ -432,7 +433,7 @@ func (p *Ppu) tick() {
 	p.exec()
 }
 
-func (p *Ppu) ticks(nTicks int) {
+func (p *Ppu) Ticks(nTicks int) {
 
 	for i := 0; i < nTicks; i++ {
 		p.tick()

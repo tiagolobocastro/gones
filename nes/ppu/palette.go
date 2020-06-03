@@ -1,4 +1,4 @@
-package gones
+package ppu
 
 import (
 	"encoding/binary"
@@ -97,10 +97,9 @@ func (p *ppuPalette) Write8(addr uint16, val uint8) {
 }
 
 // little endian
-func (p *ppuPalette) Read16(addr uint16) uint16 {
+func (p *ppuPalette) Read16(uint16) uint16 {
 	panic("oops")
-	return 0
 }
-func (p *ppuPalette) Write16(addr uint16, val uint16) {
+func (p *ppuPalette) Write16(uint16, uint16) {
 	panic("oops")
 }

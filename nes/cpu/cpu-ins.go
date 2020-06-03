@@ -1,4 +1,4 @@
-package gones
+package cpu
 
 /*
 will be useful for debugging

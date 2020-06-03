@@ -132,9 +132,9 @@ func (m *ppuMapper) Read8(addr uint16) uint8 {
 
 	// internal palette control - not configurable
 	case addr < 0x3F20:
-		return m.nes.ppu.palette.Read8(addr % 32)
+		return m.nes.ppu.Palette.Read8(addr % 32)
 	case addr < 0x4000:
-		return m.nes.ppu.palette.Read8(addr % 32)
+		return m.nes.ppu.Palette.Read8(addr % 32)
 	}
 	return 0
 }
@@ -151,14 +151,6 @@ func (m *ppuMapper) Write8(addr uint16, val uint8) {
 
 	// internal palette control
 	case addr < 0x4000:
-		m.nes.ppu.palette.Write8(addr%32, val)
+		m.nes.ppu.Palette.Write8(addr%32, val)
 	}
-}
-
-// APU
-// Sound
-// Could also be used to keep track of time?
-// Does the apu need any bus access??
-type apuMapper struct {
-	*nes
 }

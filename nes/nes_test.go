@@ -35,12 +35,12 @@ func testCpuTest(nes *nes, t *testing.T, cpuTest cpuTest) {
 	if cpuTest.prefix != nil {
 		cpuTest.prefix()
 	}
-	nes.cpu.rg.Spc.Ps.Set(cpu.BZ|cpu.BN, int8(nes.cpu.rg.Gp.Ac.Read()))
+	nes.cpu.Rg.Spc.Ps.Set(cpu.BZ|cpu.BN, int8(nes.cpu.Rg.Gp.Ac.Read()))
 
 	nes.Test()
 
-	if strings.TrimSuffix(nes.cpu.rg.String(), "\n") != cpuTest.result {
-		t.Fatalf("[%s][%s) test failed!\nGot:\t\t%s\nExpected:\t%s", t.Name(), cpuTest.name, nes.cpu.rg.String(), cpuTest.result)
+	if strings.TrimSuffix(nes.cpu.Rg.String(), "\n") != cpuTest.result {
+		t.Fatalf("[%s][%s) test failed!\nGot:\t\t%s\nExpected:\t%s", t.Name(), cpuTest.name, nes.cpu.Rg.String(), cpuTest.result)
 	}
 
 	if cpuTest.postfix != nil {
@@ -63,41 +63,41 @@ func Test_newNes_RunOpTest(t *testing.T) {
 	testCpuTest(nes, t, ldaABS)
 	var ldaABX = cpuTest{code: "0600: bd fe ff 00", result: "Pc: 0x0604, Sp: 0xff, Ps: 0xb4 (N:1 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), Ac: 0x99, X: 0x0d, Y: 0x00", prefix: func() {
 		nes.ram.Write8(0x0B, 0x99)
-		nes.cpu.rg.Gp.Ix.X.Write(0xD)
+		nes.cpu.Rg.Gp.Ix.X.Write(0xD)
 	}}
 	testCpuTest(nes, t, ldaABX)
 	var ldaABY = cpuTest{code: "0600: b9 fe ff 00", result: "Pc: 0x0604, Sp: 0xff, Ps: 0xb4 (N:1 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), Ac: 0xf9, X: 0x00, Y: 0x0d", prefix: func() {
 		nes.ram.Write8(0x0B, 0xF9)
-		nes.cpu.rg.Gp.Ix.Y.Write(0xD)
+		nes.cpu.Rg.Gp.Ix.Y.Write(0xD)
 	}}
 	testCpuTest(nes, t, ldaABY)
 	var ldaIIX = cpuTest{code: "0600: a1 00 00", result: "Pc: 0x0603, Sp: 0xff, Ps: 0xb4 (N:1 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), Ac: 0xcc, X: 0x01, Y: 0x00", prefix: func() {
 		nes.ram.Write8(0x2, 0x1)
 		nes.ram.Write8(0x100, 0xCC)
-		nes.cpu.rg.Gp.Ix.X.Write(1)
+		nes.cpu.Rg.Gp.Ix.X.Write(1)
 	}}
 	testCpuTest(nes, t, ldaIIX)
 	var ldaIIY = cpuTest{code: "0600: b1 01 00", result: "Pc: 0x0603, Sp: 0xff, Ps: 0xb4 (N:1 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), Ac: 0xcc, X: 0x00, Y: 0x02", prefix: func() {
 		nes.ram.Write8(0x2, 0x1)
 		nes.ram.Write8(0x102, 0xCC)
-		nes.cpu.rg.Gp.Ix.Y.Write(2)
+		nes.cpu.Rg.Gp.Ix.Y.Write(2)
 	}}
 	testCpuTest(nes, t, ldaIIY)
 	var ldaZPX = cpuTest{code: "0600: b5 ff 00", result: "Pc: 0x0603, Sp: 0xff, Ps: 0xb4 (N:1 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), Ac: 0xfe, X: 0x0b, Y: 0x00", prefix: func() {
 		nes.ram.Write8(0xA, 0xFE)
-		nes.cpu.rg.Gp.Ix.X.Write(0xB)
+		nes.cpu.Rg.Gp.Ix.X.Write(0xB)
 	}}
 	testCpuTest(nes, t, ldaZPX)
 	var ldxZPY = cpuTest{code: "0600: b6 ff 00", result: "Pc: 0x0603, Sp: 0xff, Ps: 0xb4 (N:1 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), Ac: 0x00, X: 0xef, Y: 0x0c", prefix: func() {
 		nes.ram.Write8(0xB, 0xEF)
-		nes.cpu.rg.Gp.Ix.Y.Write(0xC)
+		nes.cpu.Rg.Gp.Ix.Y.Write(0xC)
 	}}
 	testCpuTest(nes, t, ldxZPY)
 	var staIIX = cpuTest{code: "0600: 81 21 00", result: "Pc: 0x0603, Sp: 0xff, Ps: 0x34 (N:0 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), Ac: 0x0c, X: 0x01, Y: 0x00", prefix: func() {
 		nes.ram.Write8(0x22, 0x0)
 		nes.ram.Write8(0x23, 0x1)
-		nes.cpu.rg.Gp.Ac.Write(0x0C)
-		nes.cpu.rg.Gp.Ix.X.Write(1)
+		nes.cpu.Rg.Gp.Ac.Write(0x0C)
+		nes.cpu.Rg.Gp.Ix.X.Write(1)
 	}, postfix: func() {
 		cmpMem(nes, t, 0x100, 0x0C)
 	}}
@@ -105,48 +105,48 @@ func Test_newNes_RunOpTest(t *testing.T) {
 	var staIIY = cpuTest{code: "0600: 91 21 00", result: "Pc: 0x0603, Sp: 0xff, Ps: 0x34 (N:0 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), Ac: 0x0c, X: 0x00, Y: 0x01", prefix: func() {
 		nes.ram.Write8(0x21, 0x10)
 		nes.ram.Write8(0x22, 0x1)
-		nes.cpu.rg.Gp.Ac.Write(0x0C)
-		nes.cpu.rg.Gp.Ix.Y.Write(1)
+		nes.cpu.Rg.Gp.Ac.Write(0x0C)
+		nes.cpu.Rg.Gp.Ix.Y.Write(1)
 	}, postfix: func() {
 		cmpMem(nes, t, 0x111, 0x0C)
 	}}
 	testCpuTest(nes, t, staIIY)
 	var staZPX = cpuTest{code: "0600: 95 ff 00", result: "Pc: 0x0603, Sp: 0xff, Ps: 0x34 (N:0 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), Ac: 0x7e, X: 0x0b, Y: 0x00", prefix: func() {
-		nes.cpu.rg.Gp.Ac.Write(0x7E)
-		nes.cpu.rg.Gp.Ix.X.Write(0xB)
+		nes.cpu.Rg.Gp.Ac.Write(0x7E)
+		nes.cpu.Rg.Gp.Ix.X.Write(0xB)
 	}, postfix: func() {
 		cmpMem(nes, t, 0xA, 0x7E)
 	}}
 	testCpuTest(nes, t, staZPX)
 	var staABY = cpuTest{code: "0600: 99 ff 00 00", result: "Pc: 0x0604, Sp: 0xff, Ps: 0x34 (N:0 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), Ac: 0x7e, X: 0x00, Y: 0x0b", prefix: func() {
-		nes.cpu.rg.Gp.Ac.Write(0x7E)
-		nes.cpu.rg.Gp.Ix.Y.Write(0xB)
+		nes.cpu.Rg.Gp.Ac.Write(0x7E)
+		nes.cpu.Rg.Gp.Ix.Y.Write(0xB)
 	}, postfix: func() {
 		cmpMem(nes, t, 0x010A, 0x7E)
 	}}
 	testCpuTest(nes, t, staABY)
 	var staABX = cpuTest{code: "0600: 9d ff 00 00", result: "Pc: 0x0604, Sp: 0xff, Ps: 0x34 (N:0 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), Ac: 0x7f, X: 0x0c, Y: 0x00", prefix: func() {
-		nes.cpu.rg.Gp.Ac.Write(0x7F)
-		nes.cpu.rg.Gp.Ix.X.Write(0xC)
+		nes.cpu.Rg.Gp.Ac.Write(0x7F)
+		nes.cpu.Rg.Gp.Ix.X.Write(0xC)
 	}, postfix: func() {
 		cmpMem(nes, t, 0x010B, 0x7F)
 	}}
 	testCpuTest(nes, t, staABX)
 	var stxZPG = cpuTest{code: "0600: 86 ff 00", result: "Pc: 0x0603, Sp: 0xff, Ps: 0x36 (N:0 V:0 E:1 B:1 D:0 I:1 Z:1 C:0), Ac: 0x00, X: 0x0b, Y: 0x00", prefix: func() {
-		nes.cpu.rg.Gp.Ix.X.Write(0xB)
+		nes.cpu.Rg.Gp.Ix.X.Write(0xB)
 	}, postfix: func() {
 		cmpMem(nes, t, 0xFF, 0x0B)
 	}}
 	testCpuTest(nes, t, stxZPG)
 	var stxABS = cpuTest{code: "0600: 8e 34 02 00", result: "Pc: 0x0604, Sp: 0xff, Ps: 0x36 (N:0 V:0 E:1 B:1 D:0 I:1 Z:1 C:0), Ac: 0x00, X: 0x0b, Y: 0x00", prefix: func() {
-		nes.cpu.rg.Gp.Ix.X.Write(0xB)
+		nes.cpu.Rg.Gp.Ix.X.Write(0xB)
 	}, postfix: func() {
 		cmpMem(nes, t, 0x234, 0x0B)
 	}}
 	testCpuTest(nes, t, stxABS)
 	var stxZPY = cpuTest{code: "0600: 96 34 00", result: "Pc: 0x0603, Sp: 0xff, Ps: 0x36 (N:0 V:0 E:1 B:1 D:0 I:1 Z:1 C:0), Ac: 0x00, X: 0x0a, Y: 0x08", prefix: func() {
-		nes.cpu.rg.Gp.Ix.X.Write(0xa)
-		nes.cpu.rg.Gp.Ix.Y.Write(0x8)
+		nes.cpu.Rg.Gp.Ix.X.Write(0xa)
+		nes.cpu.Rg.Gp.Ix.Y.Write(0x8)
 	}, postfix: func() {
 		cmpMem(nes, t, 0x3C, 0xa)
 	}}
@@ -159,12 +159,12 @@ func Test_newNes_RunOpTest(t *testing.T) {
 	testCpuTest(nes, t, ldyABS)
 	var ldyABX = cpuTest{code: "0600: bc fe ff 00", result: "Pc: 0x0604, Sp: 0xff, Ps: 0xb4 (N:1 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), Ac: 0x00, X: 0x0d, Y: 0x99", prefix: func() {
 		nes.ram.Write8(0x0B, 0x99)
-		nes.cpu.rg.Gp.Ix.X.Write(0xD)
+		nes.cpu.Rg.Gp.Ix.X.Write(0xD)
 	}}
 	testCpuTest(nes, t, ldyABX)
 	var ldyZPX = cpuTest{code: "0600: b4 ff 00", result: "Pc: 0x0603, Sp: 0xff, Ps: 0xb4 (N:1 V:0 E:1 B:1 D:0 I:1 Z:0 C:0), Ac: 0x00, X: 0x0b, Y: 0xfe", prefix: func() {
 		nes.ram.Write8(0xA, 0xFE)
-		nes.cpu.rg.Gp.Ix.X.Write(0xB)
+		nes.cpu.Rg.Gp.Ix.X.Write(0xB)
 	}}
 	testCpuTest(nes, t, ldyZPX)
 }
