@@ -1,4 +1,4 @@
-package gones
+package mappers
 
 import (
 	"fmt"

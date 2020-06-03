@@ -1,8 +1,10 @@
 package gones
 
-// busInt
+import "github.com/tiagolobocastro/gones/nes/common"
+
+// BusInt
 type dma struct {
-	busInt
+	common.BusInt
 
 	clock uint
 
@@ -16,12 +18,12 @@ type dma struct {
 	delay bool
 }
 
-func (d *dma) init(busInt busInt) {
-	d.busInt = busInt
+func (d *dma) init(busInt common.BusInt) {
+	d.BusInt = busInt
 	d.nBytes = 0
 }
 func (d *dma) reset() {
-	d.init(d.busInt)
+	d.init(d.BusInt)
 }
 
 func (d *dma) active() bool {
@@ -54,12 +56,12 @@ func (d *dma) exec() {
 		} else {
 			if d.clock%2 == 0 {
 
-				d.byteRd = d.busInt.read8(d.cpuAddr)
+				d.byteRd = d.BusInt.Read8(d.cpuAddr)
 				d.cpuAddr++
 
 			} else {
 
-				d.busInt.write8(d.ppuAddr, d.byteRd)
+				d.BusInt.Write8(d.ppuAddr, d.byteRd)
 				d.nBytes--
 			}
 		}
@@ -74,11 +76,11 @@ func (d *dma) setupTransfer(cpuAddr uint16) {
 	d.nBytes = 256
 }
 
-func (d *dma) read8(addr uint16) uint8 {
+func (d *dma) Read8(addr uint16) uint8 {
 	return 0
 }
 
-func (d *dma) write8(addr uint16, val uint8) {
+func (d *dma) Write8(addr uint16, val uint8) {
 	switch addr {
 	case 0x4014:
 		d.setupTransfer(uint16(val) << 8)

@@ -1,6 +1,9 @@
-package gones
+package mappers
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/tiagolobocastro/gones/nes/common"
+)
 
 type MapperMMC1 struct {
 	cart *Cartridge
@@ -79,13 +82,13 @@ func (m *MapperMMC1) writeControl(val uint8) {
 	m.mirror = val & 0x3
 	switch m.mirror {
 	case 0:
-		m.cart.SetMirroring(SingleScreenMirroring)
+		m.cart.SetMirroring(common.SingleScreenMirroring)
 	case 1:
-		m.cart.SetMirroring(SingleScreenMirroring)
+		m.cart.SetMirroring(common.SingleScreenMirroring)
 	case 2:
-		m.cart.SetMirroring(VerticalMirroring)
+		m.cart.SetMirroring(common.VerticalMirroring)
 	case 3:
-		m.cart.SetMirroring(HorizontalMirroring)
+		m.cart.SetMirroring(common.HorizontalMirroring)
 	}
 	m.prgBankMode = (val >> 2) & 0x3
 	m.chrBankMode = val >> 4
@@ -172,7 +175,7 @@ func (m *MapperMMC1) updatePRGBank() {
 	case 3:
 		// 3: fix last bank at $C000 and switch 16 KB bank at $8000)
 		m.prgBanks[0] = 0x4000 * uint32(m.prgBank)
-		m.prgBanks[1] = uint32(m.cart.prgRom.size()) - 0x4000
+		m.prgBanks[1] = uint32(m.cart.prgRom.Size()) - 0x4000
 	}
 }
 
@@ -181,34 +184,34 @@ func (m *MapperMMC1) updatePRGBank() {
 // CPU $C000-$FFFF: 16 KB PRG ROM bank, either fixed to the last bank or switchable
 // PPU $0000-$0FFF: 4 KB switchable CHR bank
 // PPU $1000-$1FFF: 4 KB switchable CHR bank
-func (m *MapperMMC1) read8(addr uint16) uint8 {
+func (m *MapperMMC1) Read8(addr uint16) uint8 {
 	switch {
 	// PPU - normally mapped by the cartridge to a CHR-ROM or CHR-RAM,
 	// often with a bank switching mechanism.
 	case addr < 0x1000:
-		return m.cart.chr.read8(addr + m.chrBanks[0])
+		return m.cart.chr.Read8(addr + m.chrBanks[0])
 	case addr < 0x2000:
-		return m.cart.chr.read8(addr - 0x1000 + m.chrBanks[1])
+		return m.cart.chr.Read8(addr - 0x1000 + m.chrBanks[1])
 	case addr >= 0x6000 && addr < 0x8000:
-		return m.cart.prgRam.read8(addr - 0x6000)
+		return m.cart.prgRam.Read8(addr - 0x6000)
 	case addr >= 0x8000 && addr < 0xC000:
 		offset := uint32(addr - 0x8000)
-		return m.cart.prgRom.read8w(m.prgBanks[0] + offset)
+		return m.cart.prgRom.Read8w(m.prgBanks[0] + offset)
 	case addr >= 0xC000:
 		offset := uint32(addr - 0xC000)
-		return m.cart.prgRom.read8w(m.prgBanks[1] + offset)
+		return m.cart.prgRom.Read8w(m.prgBanks[1] + offset)
 	default:
 		panic(fmt.Sprintf("write not implemented for 0x%04x!", addr))
 	}
 }
-func (m *MapperMMC1) write8(addr uint16, val uint8) {
+func (m *MapperMMC1) Write8(addr uint16, val uint8) {
 	switch {
 	case addr < 0x1000:
-		m.cart.chr.write8(addr+m.chrBanks[0], val)
+		m.cart.chr.Write8(addr+m.chrBanks[0], val)
 	case addr < 0x2000:
-		m.cart.chr.write8(addr-0x1000+m.chrBanks[1], val)
+		m.cart.chr.Write8(addr-0x1000+m.chrBanks[1], val)
 	case addr >= 0x6000 && addr < 0x8000:
-		m.cart.prgRam.write8(addr-0x6000, val)
+		m.cart.prgRam.Write8(addr-0x6000, val)
 	case addr >= 0x8000:
 		m.writeLoad(addr, val)
 	default:

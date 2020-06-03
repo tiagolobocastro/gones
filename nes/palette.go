@@ -2,13 +2,14 @@ package gones
 
 import (
 	"encoding/binary"
+	"github.com/tiagolobocastro/gones/nes/mappers"
 	"image/color"
 	"log"
 	"os"
 )
 
 type ppuPalette struct {
-	// busInt
+	// BusInt
 
 	nesPalette [64]color.RGBA
 
@@ -65,7 +66,7 @@ func (p *ppuPalette) setPalette(source string) error {
 	}()
 
 	loadPalette := [64][3]uint8{}
-	if err := binary.Read(file, cartEndianness, &loadPalette); err != nil {
+	if err := binary.Read(file, mappers.CartEndianness, &loadPalette); err != nil {
 		return err
 	}
 
@@ -82,13 +83,13 @@ func (p *ppuPalette) setPalette(source string) error {
 
 // https://wiki.nesdev.com/w/index.php/PPU_palettes
 // Addresses $3F10/$3F14/$3F18/$3F1C are mirrors of $3F00/$3F04/$3F08/$3F0C
-func (p *ppuPalette) read8(addr uint16) uint8 {
+func (p *ppuPalette) Read8(addr uint16) uint8 {
 	if addr >= 16 && addr%4 == 0 {
 		addr -= 16
 	}
 	return p.indexes[addr]
 }
-func (p *ppuPalette) write8(addr uint16, val uint8) {
+func (p *ppuPalette) Write8(addr uint16, val uint8) {
 	if addr >= 16 && addr%4 == 0 {
 		addr -= 16
 	}
@@ -96,10 +97,10 @@ func (p *ppuPalette) write8(addr uint16, val uint8) {
 }
 
 // little endian
-func (p *ppuPalette) read16(addr uint16) uint16 {
+func (p *ppuPalette) Read16(addr uint16) uint16 {
 	panic("oops")
 	return 0
 }
-func (p *ppuPalette) write16(addr uint16, val uint16) {
+func (p *ppuPalette) Write16(addr uint16, val uint16) {
 	panic("oops")
 }

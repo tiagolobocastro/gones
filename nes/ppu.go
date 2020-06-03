@@ -18,7 +18,7 @@ func (p *Ppu) buildBgPixelRow() {
 }
 
 func (p *Ppu) getBgPixel() uint8 {
-	return uint8(p.rowShifter >> (32 + ((7 - p.xFine.val) * 4)))
+	return uint8(p.rowShifter >> (32 + ((7 - p.xFine.Val) * 4)))
 }
 
 func (p *Ppu) exec() {
@@ -58,16 +58,16 @@ func (p *Ppu) exec() {
 			p.updateShifter()
 			switch p.cycle % 8 {
 			case 1:
-				p.nametableEntry = p.busInt.read8(0x2000 | (p.vRAM.val & 0x0FFF))
+				p.nametableEntry = p.BusInt.Read8(0x2000 | (p.vRAM.Val & 0x0FFF))
 			case 3:
 				//  NN 1111 YYY XXX
-				//  || |||| ||| +++-- high 3 bits of coarse X (x/4)
-				//  || |||| +++------ high 3 bits of coarse Y (y/4)
+				//  || |||| ||| +++-- high 3 bits of coarse X (X/4)
+				//  || |||| +++------ high 3 bits of coarse Y (Y/4)
 				//  || ++++---------- attribute offset (960 bytes)
 				//  ++--------------- nametable select
 				vv := 0x2000 | 0x03C0 | p.vRAM.getNameTables()<<10 | ((p.vRAM.getCoarseY() >> 2) << 3) | (p.vRAM.getCoarseX() >> 2)
 
-				p.attributeEntry = p.busInt.read8(vv)
+				p.attributeEntry = p.BusInt.Read8(vv)
 
 				// BR BL TR TL
 				// shift to find the right half nibble
@@ -78,9 +78,9 @@ func (p *Ppu) exec() {
 					p.attributeEntry >>= 2
 				}
 			case 5:
-				p.lowOrderByte = p.busInt.read8(p.getBackgroundTable() | uint16(p.nametableEntry)<<4 | p.vRAM.getFineY())
+				p.lowOrderByte = p.BusInt.Read8(p.getBackgroundTable() | uint16(p.nametableEntry)<<4 | p.vRAM.getFineY())
 			case 7:
-				p.highOrderByte = p.busInt.read8(p.getBackgroundTable() | uint16(p.nametableEntry)<<4 | p.vRAM.getFineY() | 8)
+				p.highOrderByte = p.BusInt.Read8(p.getBackgroundTable() | uint16(p.nametableEntry)<<4 | p.vRAM.getFineY() | 8)
 			case 0:
 				p.buildBgPixelRow()
 
@@ -161,7 +161,7 @@ func (p *Ppu) exec() {
 					if p.fgIndex != 0 {
 
 						if s.id == 0 && p.bgIndex > 0 && x != 255 {
-							p.regs[PPUSTATUS].set(statusSprite0Hit)
+							p.regs[PPUSTATUS].Set(statusSprite0Hit)
 						}
 
 						break
@@ -175,16 +175,16 @@ func (p *Ppu) exec() {
 
 		// what gets drawn based on transparency (index==0) and priority
 		if p.bgIndex == 0 && p.fgIndex == 0 {
-			p.drawPixel(x, y, p.palette.nesPalette[p.busInt.read8(0x3F00)])
+			p.drawPixel(x, y, p.palette.nesPalette[p.BusInt.Read8(0x3F00)])
 		} else if p.bgIndex > 0 && p.fgIndex == 0 {
-			p.drawPixel(x, y, p.palette.nesPalette[p.busInt.read8(0x3F00+uint16(p.bgPalette*4+p.bgIndex))])
+			p.drawPixel(x, y, p.palette.nesPalette[p.BusInt.Read8(0x3F00+uint16(p.bgPalette*4+p.bgIndex))])
 		} else if p.bgIndex == 0 && p.fgIndex > 0 {
-			p.drawPixel(x, y, p.palette.nesPalette[p.busInt.read8(0x3F00+uint16((p.fgPalette+4)*4+p.fgIndex))])
+			p.drawPixel(x, y, p.palette.nesPalette[p.BusInt.Read8(0x3F00+uint16((p.fgPalette+4)*4+p.fgIndex))])
 		} else if p.bgIndex > 0 && p.fgIndex > 0 {
 			if p.fgPriority {
-				p.drawPixel(x, y, p.palette.nesPalette[p.busInt.read8(0x3F00+uint16((p.fgPalette+4)*4+p.fgIndex))])
+				p.drawPixel(x, y, p.palette.nesPalette[p.BusInt.Read8(0x3F00+uint16((p.fgPalette+4)*4+p.fgIndex))])
 			} else {
-				p.drawPixel(x, y, p.palette.nesPalette[p.busInt.read8(0x3F00+uint16(p.bgPalette*4+p.bgIndex))])
+				p.drawPixel(x, y, p.palette.nesPalette[p.BusInt.Read8(0x3F00+uint16(p.bgPalette*4+p.bgIndex))])
 			}
 		}
 	}
@@ -204,7 +204,7 @@ func (p *Ppu) exec() {
 		} else if preRenderLn {
 			// may already be cleared as reading from PPSTATUS will do so
 			p.clear(cpuIntNMI)
-			p.regs[PPUSTATUS].clr(statusSpriteOverflow | statusSprite0Hit)
+			p.regs[PPUSTATUS].Clr(statusSpriteOverflow | statusSprite0Hit)
 		}
 	}
 }

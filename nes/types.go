@@ -1,8 +1,11 @@
 package gones
 
 import (
-	"github.com/tiagolobocastro/gones/nes/speakers"
 	"image/color"
+
+	"github.com/tiagolobocastro/gones/nes/common"
+	"github.com/tiagolobocastro/gones/nes/mappers"
+	"github.com/tiagolobocastro/gones/nes/speakers"
 )
 
 const (
@@ -13,55 +16,6 @@ const (
 	screenXWidth     = frameXWidth * screenFrameRatio
 	screenYHeight    = frameYHeight * screenFrameRatio
 )
-
-type register struct {
-	val uint8
-
-	name string
-
-	onWrite func()
-	onRead  func() uint8
-}
-
-type register16 struct {
-	val uint16
-
-	name string
-}
-
-type ps_register struct {
-	bit [8]byte
-
-	name string
-}
-
-type spc_registers struct {
-	pc register16
-	sp register
-	ps ps_register
-
-	name string
-}
-
-type ix_registers struct {
-	x register
-	y register
-
-	name string
-}
-
-type gp_registers struct {
-	ac register
-	ix ix_registers
-
-	name string
-}
-
-type registers struct {
-	spc     spc_registers
-	gp      gp_registers
-	verbose bool
-}
 
 const (
 	// allows for validity test
@@ -94,11 +48,11 @@ type framebuffer struct {
 }
 
 type nes struct {
-	bus
+	bus common.Bus
 
 	cpu  Cpu
-	ram  ram
-	cart Cartridge
+	ram  common.Ram
+	cart mappers.Cartridge
 	ppu  Ppu
 	dma  dma
 	apu  Apu

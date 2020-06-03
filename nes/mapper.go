@@ -1,16 +1,5 @@
 package gones
 
-const (
-	mapperNROM = iota
-	mapperMMC1
-	mapperUnROM
-)
-
-type Mapper interface {
-	busInt
-	Init()
-}
-
 // CPU Mapping Table
 // Address range 	Size 	Device
 // $0000-$07FF 		$0800 	2KB internal RAM
@@ -26,20 +15,20 @@ type cpuMapper struct {
 	*nes
 }
 
-func (m *cpuMapper) read8(addr uint16) uint8 {
+func (m *cpuMapper) Read8(addr uint16) uint8 {
 	switch {
 	case addr < 0x2000:
-		return m.nes.ram.read8(addr % 2048)
+		return m.nes.ram.Read8(addr % 2048)
 
 	case addr < 0x4000:
-		return m.nes.ppu.read8(addr)
+		return m.nes.ppu.Read8(addr)
 
 	case addr < 0x4016:
 		// read from APU and I-O
 		//panic("address range not implemented!")
 	case addr < 0x4018:
 		// Controller
-		return m.nes.ctrl.read8(addr)
+		return m.nes.ctrl.Read8(addr)
 	case addr < 0x4020:
 		// APU
 		return 0 // to test
@@ -48,38 +37,38 @@ func (m *cpuMapper) read8(addr uint16) uint8 {
 		// todo: not sure what these are
 		return 0
 	default:
-		return m.nes.cart.mapper.read8(addr)
+		return m.nes.cart.Mapper.Read8(addr)
 	}
 	return 0
 }
 
-func (m *cpuMapper) write8(addr uint16, val uint8) {
+func (m *cpuMapper) Write8(addr uint16, val uint8) {
 	switch {
 	case addr < 0x2000:
-		m.nes.ram.write8(addr%2048, val)
+		m.nes.ram.Write8(addr%2048, val)
 
 	case addr < 0x4000:
-		m.nes.ppu.write8(addr, val)
+		m.nes.ppu.Write8(addr, val)
 
 	case addr <= 0x400F:
-		m.nes.apu.write8(addr, val)
+		m.nes.apu.Write8(addr, val)
 
 	case addr == 0x4014:
-		m.nes.dma.write8(addr, val)
+		m.nes.dma.Write8(addr, val)
 
 	case addr < 0x4016:
 		// I-O
 		//panic("address range not implemented!")
 	case addr < 0x4018:
 		// Controller
-		m.nes.ctrl.write8(addr, val)
+		m.nes.ctrl.Write8(addr, val)
 	case addr < 0x4020:
 		// APU
 		panic("address range not implemented!")
 	case addr < 0x6000:
 		// todo: not sure what these are
 	default:
-		m.nes.cart.mapper.write8(addr, val)
+		m.nes.cart.Mapper.Write8(addr, val)
 	}
 }
 
@@ -91,14 +80,14 @@ type dmaMapper struct {
 	*nes
 }
 
-func (m *dmaMapper) read8(addr uint16) uint8 {
+func (m *dmaMapper) Read8(addr uint16) uint8 {
 	// read from the cpu
-	return m.nes.cpu.read8(addr)
+	return m.nes.cpu.Read8(addr)
 }
 
-func (m *dmaMapper) write8(addr uint16, val uint8) {
+func (m *dmaMapper) Write8(addr uint16, val uint8) {
 	// and copy to the ppu
-	m.nes.ppu.write8(addr, val)
+	m.nes.ppu.Write8(addr, val)
 }
 
 // PPU Mapping Table
@@ -130,39 +119,39 @@ type ppuMapper struct {
 	*nes
 }
 
-func (m *ppuMapper) read8(addr uint16) uint8 {
+func (m *ppuMapper) Read8(addr uint16) uint8 {
 	switch {
 	// PPU VRAM or controlled via the Cartridge Mapper
 	case addr < 0x2000:
-		return m.nes.cart.mapper.read8(addr)
+		return m.nes.cart.Mapper.Read8(addr)
 	// normally mapped to the internal vRAM but it can be remapped!
 	case addr < 0x3000:
-		return m.nes.cart.tables.read8(addr)
+		return m.nes.cart.Tables.Read8(addr)
 	case addr < 0x3F00:
-		return m.nes.cart.tables.read8(addr - 0x1000)
+		return m.nes.cart.Tables.Read8(addr - 0x1000)
 
 	// internal palette control - not configurable
 	case addr < 0x3F20:
-		return m.nes.ppu.palette.read8(addr % 32)
+		return m.nes.ppu.palette.Read8(addr % 32)
 	case addr < 0x4000:
-		return m.nes.ppu.palette.read8(addr % 32)
+		return m.nes.ppu.palette.Read8(addr % 32)
 	}
 	return 0
 }
 
-func (m *ppuMapper) write8(addr uint16, val uint8) {
+func (m *ppuMapper) Write8(addr uint16, val uint8) {
 	switch {
 	// PPU VRAM or controlled via the Cartridge Mapper
 	case addr < 0x2000:
-		m.nes.cart.mapper.write8(addr, val)
+		m.nes.cart.Mapper.Write8(addr, val)
 	case addr < 0x3000:
-		m.nes.cart.tables.write8(addr, val)
+		m.nes.cart.Tables.Write8(addr, val)
 	case addr < 0x3F00:
-		m.nes.cart.tables.write8(addr-0x1000, val)
+		m.nes.cart.Tables.Write8(addr-0x1000, val)
 
 	// internal palette control
 	case addr < 0x4000:
-		m.nes.ppu.palette.write8(addr%32, val)
+		m.nes.ppu.palette.Write8(addr%32, val)
 	}
 }
 

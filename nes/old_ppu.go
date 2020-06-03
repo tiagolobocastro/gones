@@ -1,6 +1,10 @@
 package gones
 
-import "image/color"
+import (
+	"image/color"
+
+	"github.com/tiagolobocastro/gones/nes/common"
+)
 
 // http://wiki.nesdev.com/w/index.php/PPU_OAM
 type OamSprite struct {
@@ -22,7 +26,7 @@ type OamSprite struct {
 }
 
 type Ppu struct {
-	busInt
+	common.BusInt
 
 	clock    int
 	cycle    int
@@ -31,13 +35,13 @@ type Ppu struct {
 	verbose  bool
 
 	// cpu mapper registers
-	regs [8]register
+	regs [8]common.Register
 
 	// internal registers: http://wiki.nesdev.com/w/index.php/PPU_scrolling
-	vRAM    loopyRegister // Current VRAM address (15 bits)
-	tRAM    loopyRegister // Temporary VRAM address (15 bits); can also be thought of as the address of the top left onscreen tile.
-	xFine   register      // Fine X scroll (3 bits)
-	wToggle register      // First or second write toggle (1 bit)
+	vRAM    loopyRegister   // Current VRAM address (15 bits)
+	tRAM    loopyRegister   // Temporary VRAM address (15 bits); can also be thought of as the address of the top left onscreen tile.
+	xFine   common.Register // Fine X scroll (3 bits)
+	wToggle common.Register // First or second write toggle (1 bit)
 
 	// background
 	nametableEntry uint8
@@ -53,13 +57,13 @@ type Ppu struct {
 	vRAMBuffer uint8
 
 	// sprites
-	rOAM ram
+	rOAM common.Ram
 	// primary OAM
 	pOAM [8]OamSprite
 	// secondary OAM
 	// In addition to the primary OAM memory, the PPU contains 32 bytes (enough for 8 sprites) of secondary OAM memory
 	// that is not directly accessible by the program. During each visible scanline this secondary OAM is first cleared,
-	// and then a linear search of the entire primary OAM is carried out to find sprites that are within y range for the
+	// and then a linear search of the entire primary OAM is carried out to find sprites that are within Y range for the
 	// next scanline (the sprite evaluation phase). The OAM data for each sprite found to be within range is copied into
 	// the secondary OAM, which is then used to initialize eight internal sprite output units.
 	sOAM [8]OamSprite
@@ -81,9 +85,9 @@ type Ppu struct {
 	finalScroll uint8
 }
 
-func (p *Ppu) init(busInt busInt, verbose bool, interrupts iInterrupt, framebuffer *framebuffer) {
+func (p *Ppu) init(busInt common.BusInt, verbose bool, interrupts iInterrupt, framebuffer *framebuffer) {
 	p.verbose = verbose
-	p.busInt = busInt
+	p.BusInt = busInt
 	p.interrupts = interrupts
 	p.clock = 0
 	p.cycle = 0
@@ -91,7 +95,7 @@ func (p *Ppu) init(busInt busInt, verbose bool, interrupts iInterrupt, framebuff
 	p.frameBuffer = framebuffer
 	p.buffered = true
 
-	p.rOAM.initNfill(256, 0xfe)
+	p.rOAM.InitNfill(256, 0xfe)
 	p.palette.init()
 
 	p.initRegisters()
@@ -99,7 +103,7 @@ func (p *Ppu) init(busInt busInt, verbose bool, interrupts iInterrupt, framebuff
 }
 
 func (p *Ppu) reset() {
-	p.init(p.busInt, p.verbose, p.interrupts, p.frameBuffer)
+	p.init(p.BusInt, p.verbose, p.interrupts, p.frameBuffer)
 }
 
 // interrupt
@@ -116,11 +120,11 @@ func (p *Ppu) raise(flag uint8) {
 
 		select {
 		case p.frameBuffer.frameUpdated <- true:
-		// todo: control "vsync" channel
-		//default:
+			// todo: control "vsync" channel
+			//default:
 		}
 
-		p.regs[PPUSTATUS].val |= 0x80
+		p.regs[PPUSTATUS].Val |= 0x80
 
 		if p.getNMIVertical() == 1 {
 			p.interrupts.raise(flag & cpuIntNMI)
@@ -129,10 +133,10 @@ func (p *Ppu) raise(flag uint8) {
 }
 func (p *Ppu) clear(flag uint8) {
 	if (flag & cpuIntNMI) != 0 {
-		p.regs[PPUSTATUS].val &= 0x7F
+		p.regs[PPUSTATUS].Val &= 0x7F
 		p.interrupts.clear(flag & cpuIntNMI)
 
-		p.regs[PPUSTATUS].clr(statusSpriteOverflow | statusSprite0Hit)
+		p.regs[PPUSTATUS].Clr(statusSpriteOverflow | statusSprite0Hit)
 	}
 }
 
@@ -170,25 +174,25 @@ func (p *Ppu) getAttributeNameTable() uint16 {
 func (p *Ppu) fetchNameTableEntry() {
 	x := (p.cycle + int(p.finalScroll)) % 256
 	addr := p.getNameTable() + uint16(p.scanLine/8)*32 + uint16(x/8)
-	p.nametableEntry = p.busInt.read8(addr)
+	p.nametableEntry = p.BusInt.Read8(addr)
 }
 
 func (p *Ppu) fetchAttributeTableEntry() {
 	x := (p.cycle + int(p.finalScroll)) % 256
 	addr := p.getAttributeNameTable() + uint16(p.scanLine/32)*8 + uint16(x/32)
-	p.attributeEntry = p.busInt.read8(addr)
+	p.attributeEntry = p.BusInt.Read8(addr)
 }
 
 func (p *Ppu) fetchLowOrderByte() {
 	table := p.getBackgroundTable()
 	addr := table + uint16(p.nametableEntry)*16 + uint16(p.scanLine%8)
-	p.lowOrderByte = p.busInt.read8(addr)
+	p.lowOrderByte = p.BusInt.Read8(addr)
 }
 
 func (p *Ppu) fetchHighOrderByte() {
 	table := p.getBackgroundTable()
 	addr := table + uint16(p.nametableEntry)*16 + uint16(p.scanLine%8)
-	p.highOrderByte = p.busInt.read8(addr + 8)
+	p.highOrderByte = p.BusInt.Read8(addr + 8)
 }
 
 func (p *Ppu) execOldPpu() {
@@ -228,7 +232,7 @@ func (p *Ppu) execOldPpu() {
 	if renderFrame && visibleCycle && p.showBackground() {
 
 		if p.scanLine > 0 && p.scanLine%32 == 0 {
-			p.nameTable = p.regs[PPUCTRL].val & 3
+			p.nameTable = p.regs[PPUCTRL].Val & 3
 		}
 
 		p.fetchNameTableEntry()
@@ -273,7 +277,7 @@ func (p *Ppu) execOldPpu() {
 				if p.fgIndex != 0 {
 
 					if s.id == 0 && p.bgIndex > 0 && x != 255 {
-						p.regs[PPUSTATUS].set(statusSprite0Hit)
+						p.regs[PPUSTATUS].Set(statusSprite0Hit)
 					}
 
 					break
@@ -286,16 +290,16 @@ func (p *Ppu) execOldPpu() {
 
 		// what gets drawn based on transparency (index==0) and priority
 		if p.bgIndex == 0 && p.fgIndex == 0 {
-			p.drawPixel(x, y, p.palette.nesPalette[p.busInt.read8(0x3F00)])
+			p.drawPixel(x, y, p.palette.nesPalette[p.BusInt.Read8(0x3F00)])
 		} else if p.bgIndex > 0 && p.fgIndex == 0 {
-			p.drawPixel(x, y, p.palette.nesPalette[p.busInt.read8(0x3F00+uint16(p.bgPalette*4+p.bgIndex))])
+			p.drawPixel(x, y, p.palette.nesPalette[p.BusInt.Read8(0x3F00+uint16(p.bgPalette*4+p.bgIndex))])
 		} else if p.bgIndex == 0 && p.fgIndex > 0 {
-			p.drawPixel(x, y, p.palette.nesPalette[p.busInt.read8(0x3F00+uint16((p.fgPalette+4)*4+p.fgIndex))])
+			p.drawPixel(x, y, p.palette.nesPalette[p.BusInt.Read8(0x3F00+uint16((p.fgPalette+4)*4+p.fgIndex))])
 		} else if p.bgIndex > 0 && p.fgIndex > 0 {
 			if p.fgPriority {
-				p.drawPixel(x, y, p.palette.nesPalette[p.busInt.read8(0x3F00+uint16((p.fgPalette+4)*4+p.fgIndex))])
+				p.drawPixel(x, y, p.palette.nesPalette[p.BusInt.Read8(0x3F00+uint16((p.fgPalette+4)*4+p.fgIndex))])
 			} else {
-				p.drawPixel(x, y, p.palette.nesPalette[p.busInt.read8(0x3F00+uint16(p.bgPalette*4+p.bgIndex))])
+				p.drawPixel(x, y, p.palette.nesPalette[p.BusInt.Read8(0x3F00+uint16(p.bgPalette*4+p.bgIndex))])
 			}
 		}
 	}
@@ -317,7 +321,7 @@ func (p *Ppu) execOldPpu() {
 		} else if p.scanLine == 241 {
 			p.raise(cpuIntNMI)
 		} else if p.scanLine == 242 {
-			p.nameTable = p.regs[PPUCTRL].val & 0x3
+			p.nameTable = p.regs[PPUCTRL].Val & 0x3
 		}
 	}
 }
@@ -357,8 +361,8 @@ func (p *Ppu) loadSprites() {
 
 		addr += uint16(lSpY) + uint16(lSpY&8)
 
-		s.lsbIndex = p.busInt.read8(addr)
-		s.msbIndex = p.busInt.read8(addr + 8)
+		s.lsbIndex = p.BusInt.Read8(addr)
+		s.msbIndex = p.BusInt.Read8(addr + 8)
 
 		// horizontal flip
 		if (s.attributes & 0x40) != 0 {
@@ -382,21 +386,21 @@ func (p *Ppu) evalSprites() {
 	for i := uint16(0); i < 64; i++ {
 
 		// 0 yPos, 1 index, 2 attr, 3 xPos => i*4
-		yPos := p.rOAM.read8(i * 4)
+		yPos := p.rOAM.Read8(i * 4)
 		yPosEnd := uint16(yPos) + uint16(yLen)
 
 		// if the scanLine intersects the sprite, it's a "hit"
 		// copy sprite to the secondary OAM
 		if evalScan >= int(yPos) && evalScan < int(yPosEnd) {
 			p.sOAM[spriteCount].yPos = yPos
-			p.sOAM[spriteCount].tIndex = p.rOAM.read8(i*4 + 1)
-			p.sOAM[spriteCount].attributes = p.rOAM.read8(i*4 + 2)
-			p.sOAM[spriteCount].xPos = p.rOAM.read8(i*4 + 3)
+			p.sOAM[spriteCount].tIndex = p.rOAM.Read8(i*4 + 1)
+			p.sOAM[spriteCount].attributes = p.rOAM.Read8(i*4 + 2)
+			p.sOAM[spriteCount].xPos = p.rOAM.Read8(i*4 + 3)
 			p.sOAM[spriteCount].id = uint8(i)
 
 			spriteCount += 1
 			if spriteCount >= 8 {
-				p.regs[PPUSTATUS].set(statusSpriteOverflow)
+				p.regs[PPUSTATUS].Set(statusSpriteOverflow)
 				break
 			}
 		}
@@ -436,7 +440,7 @@ func (p *Ppu) ticks(nTicks int) {
 }
 
 // BusInt
-func (p *Ppu) read8(addr uint16) uint8 {
+func (p *Ppu) Read8(addr uint16) uint8 {
 	if addr < 0x4000 {
 		// incomplete decoding means 0x2000-0x2007 are mirrored every 8 bytes
 		addr = 0x2000 + addr%8
@@ -445,19 +449,19 @@ func (p *Ppu) read8(addr uint16) uint8 {
 	switch addr {
 	// PPU Status (PPUSTATUS) - RDONLY
 	case 0x2002:
-		return p.regs[PPUSTATUS].read()
+		return p.regs[PPUSTATUS].Read()
 	// PPU OAM Data (OAMDATA)
 	case 0x2004:
-		return p.regs[OAMDATA].read()
+		return p.regs[OAMDATA].Read()
 	// PPU Data (PPUDATA)
 	case 0x2007:
-		return p.regs[PPUDATA].read()
+		return p.regs[PPUDATA].Read()
 	}
 
 	return 0
 }
 
-func (p *Ppu) write8(addr uint16, val uint8) {
+func (p *Ppu) Write8(addr uint16, val uint8) {
 
 	p.setLastRegWrite(val)
 
@@ -469,25 +473,25 @@ func (p *Ppu) write8(addr uint16, val uint8) {
 	switch addr {
 	// PPU Control (PPUCTRL) - WRONLY
 	case 0x2000:
-		p.regs[PPUCTRL].write(val)
+		p.regs[PPUCTRL].Write(val)
 	// PPU Mask (PPUMASK) - WRONLY
 	case 0x2001:
-		p.regs[PPUMASK].write(val)
+		p.regs[PPUMASK].Write(val)
 	// PPU OAM Data (OAMADDR) - WRONLY
 	case 0x2003:
-		p.regs[OAMADDR].write(val)
+		p.regs[OAMADDR].Write(val)
 	// PPU OAM Data (OAMDATA)
 	case 0x2004:
-		p.regs[OAMDATA].write(val)
+		p.regs[OAMDATA].Write(val)
 	// PPU Scrolling (PPUSCROLL) - WRONLY
 	case 0x2005:
-		p.regs[PPUSCROLL].write(val)
+		p.regs[PPUSCROLL].Write(val)
 	// PPU Address (PPUADDR) - WRONLY
 	case 0x2006:
-		p.regs[PPUADDR].write(val)
+		p.regs[PPUADDR].Write(val)
 	// PPU Data (PPUDATA)
 	case 0x2007:
-		p.regs[PPUDATA].write(val)
+		p.regs[PPUDATA].Write(val)
 	// PPU OAM DMA (OAMDMA) - WRONLY
 	case 0x4014:
 		// handled by the dma engine

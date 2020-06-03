@@ -1,7 +1,10 @@
 package gones
 
 import (
+	"fmt"
+	"io"
 	"log"
+	"strings"
 	"time"
 )
 
@@ -51,25 +54,25 @@ func (n *nes) Run() {
 }
 
 func (n *nes) init() {
-	n.bus.init()
+	n.bus.Init()
 
-	if err := n.cart.init(n.cartPath); err != nil {
+	if err := n.cart.Init(n.cartPath); err != nil {
 		log.Panicf("Failed to initialise the cartridge, err=%v", err)
 	}
 
-	n.ram.init(0x800)
+	n.ram.Init(0x800)
 
 	n.ctrl.init()
 	n.screen.init(n)
 
-	n.cpu.init(n.bus.getBusInt(MapCPUId), n.verbose)
-	n.ppu.init(n.bus.getBusInt(MapPPUId), n.verbose, &n.cpu, &n.screen.framebuffer)
-	n.dma.init(n.bus.getBusInt(MapDMAId))
-	n.apu.init(n.bus.getBusInt(MapAPUId), n.verbose, n.audioLog, n.audioLib)
+	n.cpu.init(n.bus.GetBusInt(MapCPUId), n.verbose)
+	n.ppu.init(n.bus.GetBusInt(MapPPUId), n.verbose, &n.cpu, &n.screen.framebuffer)
+	n.dma.init(n.bus.GetBusInt(MapDMAId))
+	n.apu.init(n.bus.GetBusInt(MapAPUId), n.verbose, n.audioLog, n.audioLib)
 
-	n.bus.connect(MapCPUId, &cpuMapper{n})
-	n.bus.connect(MapPPUId, &ppuMapper{n})
-	n.bus.connect(MapDMAId, &dmaMapper{n})
+	n.bus.Connect(MapCPUId, &cpuMapper{n})
+	n.bus.Connect(MapPPUId, &ppuMapper{n})
+	n.bus.Connect(MapDMAId, &dmaMapper{n})
 
 	n.cpu.reset()
 }
@@ -168,4 +171,31 @@ func (n *nes) reset() {
 	n.apu.reset()
 
 	n.resetRq = false
+}
+
+// loads hex dumps from: https://skilldrick.github.io/easy6502/, eg:
+// `0600: a9 01 85 02 a9 cc 8d 00 01 a9 01 a a1 00 00 00
+//  0610: a9 05 a 8e 00 02 a9 05 8d 01 02 a9 08 8d 02 02`
+
+func (n *nes) loadEasyCode(code string) {
+
+	for i, line := range strings.Split(strings.TrimSuffix(code, "\n"), "\n") {
+		addr := 0
+		var bt [16]int
+		ns, err := fmt.Sscanf(line, "%X: %X %X %X %X %X %X %X %X %X %X %X %X %X %X %X %X ",
+			&addr, &bt[0], &bt[1], &bt[2], &bt[3], &bt[4], &bt[5], &bt[6], &bt[7],
+			&bt[8], &bt[9], &bt[10], &bt[11], &bt[12], &bt[13], &bt[14], &bt[15])
+		if err != nil && err != io.EOF {
+			log.Printf("Error when scanning easyCode line, ns: %X, error: %v\n", ns, err)
+		}
+
+		if i == 0 {
+			// assumes first line is where the program starts
+			n.cart.WriteRom16(0xFFFC, uint16(addr))
+		}
+
+		for i, b := range bt {
+			n.cpu.Write8(uint16(addr+i), uint8(b))
+		}
+	}
 }

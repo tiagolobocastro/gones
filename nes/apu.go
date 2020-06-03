@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/tiagolobocastro/gones/nes/common"
 	"github.com/tiagolobocastro/gones/nes/waves"
 )
 
@@ -59,7 +60,7 @@ func (a *Apu) reset() {
 	a.frameStep = 0
 	a.frameMode = 0
 }
-func (a *Apu) init(busInt busExtInt, verbose bool, logAudio bool, audioLib AudioLib) {
+func (a *Apu) init(busInt common.BusExtInt, verbose bool, logAudio bool, audioLib AudioLib) {
 	a.verbose = verbose
 	a.logAudio = logAudio
 	a.audioLib = audioLib
@@ -196,11 +197,11 @@ func (a *Apu) frameTick() {
 	}
 }
 
-func (a *Apu) read8(addr uint16) uint8 {
-	log.Printf("Error: Reading from the APU addr %x\n", addr)
+func (a *Apu) Read8(addr uint16) uint8 {
+	log.Printf("Error: Reading from the APU addr %X\n", addr)
 	return 0
 }
-func (a *Apu) write8(addr uint16, val uint8) {
+func (a *Apu) Write8(addr uint16, val uint8) {
 	switch {
 	case addr >= 0x4000 && addr <= 0x4003:
 		a.pulse1.Write8(addr, val)
@@ -210,7 +211,7 @@ func (a *Apu) write8(addr uint16, val uint8) {
 		a.triangle.Write8(addr, val)
 	case addr == 0x400A, addr == 0x400B:
 		a.triangle.Write8(addr, val)
-	case addr == 0x400C, addr == 0x400E, addr == 0x400F:
+	case addr >= 0x400C && addr <= 0x400F:
 		a.noise.Write8(addr, val)
 	case addr == 0x4017:
 		a.frameMode = uint(val & 0x80)

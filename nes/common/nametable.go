@@ -1,6 +1,8 @@
-package gones
+package common
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type NameTableMirroring uint8
 
@@ -16,23 +18,23 @@ const (
 
 // busInt
 type NameTables struct {
-	vRam ram
+	vRam Ram
 
-	mirroring NameTableMirroring
+	Mirroring NameTableMirroring
 }
 
-func (n *NameTables) init(defaultMirror NameTableMirroring) {
-	n.vRam.init(0x800)
-	n.mirroring = defaultMirror
+func (n *NameTables) Init(defaultMirror NameTableMirroring) {
+	n.vRam.Init(0x800)
+	n.Mirroring = defaultMirror
 }
 
-func (n *NameTables) read8(addr uint16) uint8 {
+func (n *NameTables) Read8(addr uint16) uint8 {
 	addr = n.decode(addr)
-	return n.vRam.read8(addr)
+	return n.vRam.Read8(addr)
 }
-func (n *NameTables) write8(addr uint16, val uint8) {
+func (n *NameTables) Write8(addr uint16, val uint8) {
 	addr = n.decode(addr)
-	n.vRam.write8(addr, val)
+	n.vRam.Write8(addr, val)
 }
 
 func (n *NameTables) decode(addr uint16) uint16 {
@@ -40,7 +42,7 @@ func (n *NameTables) decode(addr uint16) uint16 {
 	addr -= 0x2000
 	table := addr / 0x400
 	addr = addr % 0x400
-	switch n.mirroring {
+	switch n.Mirroring {
 	case HorizontalMirroring:
 		// $2000 equals $2400 and $2800 equals $2C00
 		switch table {

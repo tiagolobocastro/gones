@@ -51,7 +51,7 @@ func (c *controllers) poke(controllerId uint8, button uint8, pressed bool) {
 }
 
 // BusInt
-func (c *controllers) read8(addr uint16) uint8 {
+func (c *controllers) Read8(addr uint16) uint8 {
 
 	val := uint8(0)
 	switch addr {
@@ -66,7 +66,7 @@ func (c *controllers) read8(addr uint16) uint8 {
 	return val
 }
 
-func (c *controllers) write8(addr uint16, val uint8) {
+func (c *controllers) Write8(addr uint16, val uint8) {
 	switch addr {
 	case 0x4016:
 		// if strobe set start polling the buttons
