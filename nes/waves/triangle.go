@@ -57,6 +57,7 @@ func (t *Triangle) Init() {
 	t.duration.reset()
 	t.sequencer.init(t.dutyTable(), t)
 	t.linearCnt.reset()
+	t.enabled = true
 }
 func (t *Triangle) Tick() {
 	t.clock++
@@ -78,10 +79,19 @@ func (t *Triangle) HalfFrameTick() {
 func (t *Triangle) Sample() float64 {
 	output := t.sequencer.value()
 
-	if !t.duration.mute() &&
+	if t.enabled && !t.duration.mute() &&
 		t.linearCnt.counter > 0 {
 		return float64(output)
 	} else {
 		return 0.0
+	}
+}
+func (t *Triangle) Enabled() bool {
+	return !t.duration.mute()
+}
+func (t *Triangle) Enable(yes bool) {
+	t.enabled = yes
+	if !yes {
+		t.duration.counter = 0
 	}
 }

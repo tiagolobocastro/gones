@@ -33,6 +33,7 @@ func (p *Pulse) Init(pulseOne bool) {
 	p.sequencer.init(p.dutyTable(), p)
 	p.envelope.reset()
 	p.sweep.init(p)
+	p.enabled = true
 }
 func (p *Pulse) Tick() {
 	p.clock++
@@ -91,7 +92,8 @@ func (p *Pulse) Sample() float64 {
 	// maybe let's try using a more "perfect" sampling freq
 	// and then using a filter
 
-	if output > 0 &&
+	if p.enabled &&
+		output > 0 &&
 		!p.duration.mute() &&
 		!p.sweep.mute() {
 		if p.constVolume {
@@ -101,6 +103,15 @@ func (p *Pulse) Sample() float64 {
 		}
 	} else {
 		return 0.0
+	}
+}
+func (p *Pulse) Enabled() bool {
+	return !p.duration.mute()
+}
+func (p *Pulse) Enable(yes bool) {
+	p.enabled = yes
+	if !yes {
+		p.duration.counter = 0
 	}
 }
 

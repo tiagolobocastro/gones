@@ -5,8 +5,51 @@ import (
 	"log"
 	"time"
 
+	"github.com/tiagolobocastro/gones/nes/common"
 	"github.com/tiagolobocastro/gones/nes/waves"
 )
+
+// Status Registers Enable bits
+// ---D NT21 Enable DMC (D), noise (N), triangle (T), and pulse channels (2/1)
+const (
+	bP1 = 1 << 0
+	bP2 = 1 << 1
+	bT  = 1 << 2
+	bN  = 1 << 3
+	bD  = 1 << 4
+)
+
+func (a *Apu) writeStatusReg() {
+	a.pulse1.Enable((a.status.Val & bP1) != 0)
+	a.pulse2.Enable((a.status.Val & bP2) != 0)
+	a.triangle.Enable((a.status.Val & bT) != 0)
+	a.noise.Enable((a.status.Val & bN) != 0)
+	a.dmc.Enable((a.status.Val & bD) != 0)
+	// Clear the DMC interrupt flag
+}
+func (a *Apu) readStatusReg() uint8 {
+	status := uint8(0)
+	if a.pulse1.Enabled() {
+		status |= bP1
+	}
+	if a.pulse2.Enabled() {
+		status |= bP2
+	}
+	if a.triangle.Enabled() {
+		status |= bT
+	}
+	if a.noise.Enabled() {
+		status |= bN
+	}
+	if a.dmc.Enabled() {
+		status |= bD
+	}
+	// Reading this register clears the frame interrupt flag
+	// (but not the DMC interrupt flag).
+	// If an interrupt flag was set at the same moment of the read, it will
+	// read back as 1 but it will not be cleared.
+	return status
+}
 
 type Apu struct {
 	pulse1 waves.Pulse
@@ -15,6 +58,8 @@ type Apu struct {
 	triangle waves.Triangle
 
 	noise waves.Noise
+
+	dmc waves.Dmc
 
 	clock   uint
 	verbose bool
@@ -28,6 +73,8 @@ type Apu struct {
 	samples       uint
 	sampleLogTime time.Time
 	samplesTotal  uint
+
+	status common.Register
 
 	audioLib AudioLib
 	speaker  AudioSpeaker
@@ -45,6 +92,7 @@ func (a *Apu) reset() {
 	a.pulse2.Init(false)
 	a.triangle.Init()
 	a.noise.Init()
+	a.dmc.Init()
 
 	a.speaker.Reset()
 	a.sampleTicks = float64(NesBaseFrequency) / float64(a.speaker.SampleRate())
@@ -58,6 +106,8 @@ func (a *Apu) reset() {
 	a.frameCounter = 0
 	a.frameStep = 0
 	a.frameMode = 0
+
+	a.status.Initx("status", 0, a.writeStatusReg, a.readStatusReg)
 }
 func (a *Apu) init(verbose bool, logAudio bool, audioLib AudioLib) {
 	a.verbose = verbose
@@ -127,6 +177,7 @@ func (a *Apu) tick() {
 		a.pulse1.Tick()
 		a.pulse2.Tick()
 		a.noise.Tick()
+		a.dmc.Tick()
 	}
 	a.triangle.Tick()
 	a.sample()
@@ -142,7 +193,9 @@ func (a *Apu) sample() {
 		//triangle := 0.0
 		noise := a.noise.Sample()
 		//noise := 0.0
-		mix := 0.00851*triangle + 0.00494*noise + mixPulses
+		dmc := a.dmc.Sample()
+		//dmc := 0.0
+		mix := 0.00851*triangle + 0.00494*noise + 0.00335*dmc + mixPulses
 
 		a.addSample(mix)
 	}
@@ -212,6 +265,10 @@ func (a *Apu) Write8(addr uint16, val uint8) {
 		a.triangle.Write8(addr, val)
 	case addr >= 0x400C && addr <= 0x400F:
 		a.noise.Write8(addr, val)
+	case addr >= 0x4010 && addr <= 0x4013:
+		a.dmc.Write8(addr, val)
+	case addr == 0x4015:
+		a.status.Write(val)
 	case addr == 0x4017:
 		a.frameMode = uint(val & 0x80)
 		a.frameStep = 0

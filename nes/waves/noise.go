@@ -22,6 +22,7 @@ func (n *Noise) Init() {
 	n.duration.reset()
 	n.envelope.reset()
 	n.timer.reset()
+	n.enabled = true
 }
 func (n *Noise) Tick() {
 	n.clock++
@@ -73,6 +74,15 @@ func (n *Noise) Sample() float64 {
 		}
 	} else {
 		return 0.0
+	}
+}
+func (n *Noise) Enabled() bool {
+	return !n.duration.mute()
+}
+func (n *Noise) Enable(yes bool) {
+	n.enabled = yes
+	if !yes {
+		n.duration.counter = 0
 	}
 }
 
