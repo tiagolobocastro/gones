@@ -203,7 +203,8 @@ func (c *Cpu) exec() {
 	switch c.interrupts {
 	case CpuIntNMI:
 		c.nmi()
-		c.clk += 7
+		// nmi already bumped it by 7?
+		// c.clk += 7
 	}
 
 	c.curr.pgX = false

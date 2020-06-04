@@ -154,3 +154,14 @@ func (m *ppuMapper) Write8(addr uint16, val uint8) {
 		m.nes.ppu.Palette.Write8(addr%32, val)
 	}
 }
+
+// APU
+// Could also be used to keep track of time?
+type apuMapper struct {
+	*nes
+}
+
+func (a *apuMapper) Read8(addr uint16) uint8 {
+	return a.cpu.Read8(addr)
+}
+func (a *apuMapper) Write8(uint16, uint8) {}

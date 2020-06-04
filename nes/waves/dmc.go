@@ -1,16 +1,27 @@
 package waves
 
+import "github.com/tiagolobocastro/gones/nes/common"
+
 type Dmc struct {
+	common.BusInt
+
 	// Flags and Rate
 	irqEnable bool
 	loopFlag  bool
 	rateTicks uint16
 
-	directLoad uint8
-	sampleAddr uint16
-	sampleLen  uint16
+	outputLevel   uint8
+	sampleAddrRld uint16
+	sampleLenRld  uint16
 
-	shiftRegister uint16
+	sampleBuffer uint8
+	sampleReady  bool
+	sampleAddr   uint16
+	sampleLen    uint16
+
+	shiftRegister uint8
+	bitsRemaining uint8
+	silenceFlag   bool
 
 	timer Timer
 
@@ -38,23 +49,75 @@ func sampleLen(L uint8) uint16 {
 	return 1 + (uint16(L) * 16)
 }
 
-func (d *Dmc) Init() {
+func (d *Dmc) Init(busInt common.BusInt) {
+	d.BusInt = busInt
+
 	d.irqEnable = false
 	d.loopFlag = false
-	d.rateTicks = rateTable()[0]
-	d.directLoad = 0
-	d.sampleAddr = sampleAddr(0)
-	d.sampleLen = sampleLen(0)
+	d.rateTicks = rateTable()[0] / 2
+	d.outputLevel = 0
+	d.sampleAddrRld = sampleAddr(0)
+	d.sampleAddr = d.sampleAddrRld
+	d.sampleLenRld = sampleLen(0)
+	d.sampleLen = d.sampleAddrRld
+	d.sampleBuffer = 0
+	d.sampleReady = false
 
 	d.clock = 0
 	d.shiftRegister = 1
+	d.bitsRemaining = 0
+	d.silenceFlag = false
 	d.timer.reset()
 	d.enabled = true
+}
+func (d *Dmc) reload() {
+	if d.sampleLen == 0 {
+		d.sampleLen = d.sampleLenRld
+		d.sampleAddr = d.sampleAddrRld
+	}
 }
 
 func (d *Dmc) Tick() {
 	d.clock++
 	if d.timer.tick() {
+		if !d.sampleReady && d.sampleLen > 0 {
+			d.sampleBuffer = d.Read8(d.sampleAddr)
+			d.sampleAddr++
+			d.sampleLen--
+			if d.sampleAddr == 0 {
+				d.sampleAddr = 0x8000
+			}
+			// todo: stall cpu for a few cycles:
+			// https://wiki.nesdev.com/w/index.php/APU_DMC
+			if d.loopFlag {
+				d.reload()
+			}
+		}
+
+		if d.bitsRemaining == 0 {
+			d.bitsRemaining = 8
+
+			if !d.sampleReady {
+				d.silenceFlag = true
+			} else {
+				d.silenceFlag = false
+				d.shiftRegister = d.sampleBuffer
+			}
+		}
+
+		if !d.silenceFlag {
+			if (d.shiftRegister & 1) == 1 {
+				if d.outputLevel <= 125 {
+					d.outputLevel += 2
+				}
+			} else {
+				if d.outputLevel >= 2 {
+					d.outputLevel -= 2
+				}
+			}
+			d.shiftRegister >>= 1
+		}
+		d.bitsRemaining--
 	}
 }
 
@@ -64,35 +127,37 @@ func (d *Dmc) Write8(addr uint16, val uint8) {
 	case 0x4010:
 		d.irqEnable = (val & 0x80) != 0
 		d.loopFlag = (val & 0x40) != 0
-		d.rateTicks = rateTable()[val&0xF]
+		d.rateTicks = rateTable()[val&0xF] / 2
 
 		// Direct load
 	case 0x4011:
-		d.directLoad = val & 0x7F
+		d.outputLevel = val & 0x7F
 
 		// Sample address
 	case 0x4012:
-		d.sampleAddr = sampleAddr(val)
+		d.sampleAddrRld = sampleAddr(val)
 
 		// Sample length
 	case 0x4013:
-		d.sampleLen = sampleLen(val)
+		d.sampleLenRld = sampleLen(val)
 	}
 }
 
 func (d *Dmc) Sample() float64 {
-	if d.enabled {
-		return 0.0
+	return float64(d.outputLevel)
+	if d.enabled && !d.silenceFlag {
+		return float64(d.outputLevel)
 	}
 	return 0.0
 }
 func (d *Dmc) Enabled() bool {
-	//return d.remaining > 0
-	return false
+	return d.sampleLen > 0
 }
 func (d *Dmc) Enable(yes bool) {
 	d.enabled = yes
 	if !yes {
-		//d.duration.counter = 0
+		d.sampleLen = 0
+	} else {
+		d.reload()
 	}
 }

@@ -52,6 +52,8 @@ func (a *Apu) readStatusReg() uint8 {
 }
 
 type Apu struct {
+	common.BusInt
+
 	pulse1 waves.Pulse
 	pulse2 waves.Pulse
 
@@ -92,7 +94,7 @@ func (a *Apu) reset() {
 	a.pulse2.Init(false)
 	a.triangle.Init()
 	a.noise.Init()
-	a.dmc.Init()
+	a.dmc.Init(a.BusInt)
 
 	a.speaker.Reset()
 	a.sampleTicks = float64(NesBaseFrequency) / float64(a.speaker.SampleRate())
@@ -109,7 +111,9 @@ func (a *Apu) reset() {
 
 	a.status.Initx("status", 0, a.writeStatusReg, a.readStatusReg)
 }
-func (a *Apu) init(verbose bool, logAudio bool, audioLib AudioLib) {
+func (a *Apu) init(busInt common.BusInt, verbose bool, logAudio bool, audioLib AudioLib) {
+	a.BusInt = busInt
+
 	a.verbose = verbose
 	a.logAudio = logAudio
 	a.audioLib = audioLib
@@ -133,7 +137,7 @@ func (a *Apu) addSample(val float64) {
 	if !a.speaker.Sample(val) {
 		if time.Now().Second()-lastLagReported.Second() > 1 {
 			lastLagReported = time.Now()
-			fmt.Printf("The Audio Speaker is falling behind the audio samples!\n")
+			go fmt.Printf("The Audio Speaker is falling behind the audio samples!\n")
 		}
 	}
 	a.logSampling()
@@ -151,7 +155,7 @@ func (a *Apu) logSampling() {
 		a.sampleLogTime = time.Now()
 		hz := NesBaseFrequency / (float64(a.clock) / float64(a.samplesTotal))
 		a.samples = 0
-		fmt.Printf("Sampling: Real %v Hz, Apu %v Hz\n", sps, hz)
+		go fmt.Printf("Sampling: Real %v Hz, Apu %v Hz\n", sps, hz)
 	}
 }
 
