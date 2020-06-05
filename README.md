@@ -70,3 +70,6 @@ Usage of gones:
 
 -freerun flag
 >run as fast as possible with double buffered sync (debug only)
+
+-spritelimit flag
+>limit number of sprites per scanline to 8 (true to the NES)

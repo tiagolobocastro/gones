@@ -33,11 +33,12 @@ type nes struct {
 	resetRq bool
 
 	// Options
-	verbose  bool
-	cartPath string
-	freeRun  bool
-	audioLib AudioLib
-	audioLog bool
+	verbose     bool
+	cartPath    string
+	freeRun     bool
+	audioLib    AudioLib
+	audioLog    bool
+	spriteLimit bool
 }
 
 const (
@@ -81,7 +82,8 @@ func NewSpeaker(lib AudioLib) AudioSpeaker {
 	return speaker
 }
 
-const NesBaseFrequency = 1789773
+const NesBaseFrequency = 1789773 // NTSC
+//const NesBaseFrequency = 1662607 // PAL
 
 //const NesApuFrequency = NesBaseFrequency / 2
 const NesApuFrameCycles = 7457

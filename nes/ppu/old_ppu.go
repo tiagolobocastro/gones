@@ -60,14 +60,14 @@ type Ppu struct {
 	// sprites
 	rOAM common.Ram
 	// primary OAM
-	pOAM [8]OamSprite
+	pOAM [16]OamSprite
 	// secondary OAM
 	// In addition to the primary OAM memory, the PPU contains 32 bytes (enough for 8 sprites) of secondary OAM memory
 	// that is not directly accessible by the program. During each visible scanline this secondary OAM is first cleared,
 	// and then a linear search of the entire primary OAM is carried out to find sprites that are within Y range for the
 	// next scanline (the sprite evaluation phase). The OAM data for each sprite found to be within range is copied into
 	// the secondary OAM, which is then used to initialize eight internal sprite output units.
-	sOAM [8]OamSprite
+	sOAM [16]OamSprite
 
 	// move this into a struct maybe
 	bgIndex    uint8
@@ -84,9 +84,11 @@ type Ppu struct {
 	interrupts common.IiInterrupt
 
 	finalScroll uint8
+	maxSprites  uint8 // max sprites per scanline, 8 is true to the NES hardware
+	spriteLimit bool
 }
 
-func (p *Ppu) Init(busInt common.BusInt, verbose bool, interrupts common.IiInterrupt, framebuffer *common.Framebuffer) {
+func (p *Ppu) Init(busInt common.BusInt, verbose bool, interrupts common.IiInterrupt, framebuffer *common.Framebuffer, spriteLimit bool) {
 	p.verbose = verbose
 	p.BusInt = busInt
 	p.interrupts = interrupts
@@ -95,6 +97,11 @@ func (p *Ppu) Init(busInt common.BusInt, verbose bool, interrupts common.IiInter
 	p.scanLine = -1
 	p.frameBuffer = framebuffer
 	p.buffered = true
+	p.maxSprites = uint8(len(p.pOAM))
+	p.spriteLimit = spriteLimit
+	if spriteLimit {
+		p.maxSprites = 8
+	}
 
 	p.rOAM.InitNfill(256, 0xfe)
 	p.Palette.init()
@@ -104,7 +111,7 @@ func (p *Ppu) Init(busInt common.BusInt, verbose bool, interrupts common.IiInter
 }
 
 func (p *Ppu) Reset() {
-	p.Init(p.BusInt, p.verbose, p.interrupts, p.frameBuffer)
+	p.Init(p.BusInt, p.verbose, p.interrupts, p.frameBuffer, p.spriteLimit)
 }
 
 // interrupt
@@ -255,7 +262,7 @@ func (p *Ppu) execOldPpu() {
 	}
 
 	if visibleFrame && visibleCycle && p.showSprites() {
-		for i := range p.pOAM {
+		for i := uint8(0); i < p.maxSprites; i++ {
 			if p.pOAM[i].id == 64 {
 				continue
 			}
@@ -338,7 +345,9 @@ func (p *Ppu) drawPixel(x uint8, y uint8, c color.RGBA) {
 func (p *Ppu) loadSprites() {
 	_, spriteSizeY := p.getSpriteSize()
 	patternAddr := p.getSpritePattern()
-	for i := range p.sOAM {
+	evalLine := p.spriteEvalLine()
+
+	for i := uint8(0); i < p.maxSprites; i++ {
 
 		p.pOAM[i] = p.sOAM[i]
 		s := &p.pOAM[i]
@@ -353,11 +362,11 @@ func (p *Ppu) loadSprites() {
 
 		// calculate line inside sprite for the next scanLine
 		// edit: seems like sprites are already arranged like so, meaning we can use the current?
-		lSpY := (p.scanLine - int(s.yPos)) % int(spriteSizeY)
+		lSpY := (evalLine - s.yPos) % spriteSizeY
 
 		// vertical flip
 		if (s.attributes & 0x80) != 0 {
-			lSpY ^= int(spriteSizeY) - 1
+			lSpY ^= spriteSizeY - 1
 		}
 
 		addr += uint16(lSpY) + uint16(lSpY&8)
@@ -379,20 +388,32 @@ func reverseByte(b uint8) uint8 {
 		((b & 0x10) >> 1) | ((b & 0x20) >> 3) |
 		((b & 0x40) >> 5) | ((b & 0x80) >> 7)
 }
-
+func (p *Ppu) spriteEvalLine() uint8 {
+	if p.scanLine < 239 {
+		return uint8(p.scanLine + 1)
+	} else {
+		return 0
+	}
+}
 func (p *Ppu) evalSprites() {
-	spriteCount := 0
-	evalScan := p.scanLine
+	spriteCount := uint8(0)
+	evalScan := p.spriteEvalLine()
+
 	_, yLen := p.getSpriteSize()
 	for i := uint16(0); i < 64; i++ {
 
 		// 0 yPos, 1 index, 2 attr, 3 xPos => i*4
 		yPos := p.rOAM.Read8(i * 4)
-		yPosEnd := uint16(yPos) + uint16(yLen)
+		yPosEnd := yPos + yLen
 
 		// if the scanLine intersects the sprite, it's a "hit"
 		// copy sprite to the secondary OAM
-		if evalScan >= int(yPos) && evalScan < int(yPosEnd) {
+		if evalScan >= yPos && evalScan < yPosEnd {
+
+			if spriteCount >= p.maxSprites {
+				p.regs[PPUSTATUS].Set(statusSpriteOverflow)
+				break
+			}
 			p.sOAM[spriteCount].yPos = yPos
 			p.sOAM[spriteCount].tIndex = p.rOAM.Read8(i*4 + 1)
 			p.sOAM[spriteCount].attributes = p.rOAM.Read8(i*4 + 2)
@@ -400,10 +421,6 @@ func (p *Ppu) evalSprites() {
 			p.sOAM[spriteCount].id = uint8(i)
 
 			spriteCount += 1
-			if spriteCount >= 8 {
-				p.regs[PPUSTATUS].Set(statusSpriteOverflow)
-				break
-			}
 		}
 	}
 }
@@ -414,7 +431,7 @@ func (p *Ppu) clearOAM() {
 }
 
 func (p *Ppu) clearSecOAM() {
-	for i := range p.sOAM {
+	for i := uint8(0); i < p.maxSprites; i++ {
 		// set back defaults
 		p.sOAM[i] = OamSprite{
 			yPos:       0xFF,

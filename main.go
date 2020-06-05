@@ -34,6 +34,7 @@ func main() {
 	logAudio := flag.Bool("logaudio", false, "log audio sampling average every second (debug only)")
 	verbose := flag.Bool("verbose", false, "verbose logs (debug only)")
 	freeRun := flag.Bool("freerun", false, "run as fast as possible with double buffered sync (debug only)")
+	spriteLimit := flag.Bool("spritelimit", false, "limit number of sprites per scanline to 8 (true to the NES)")
 	if err := flag.CommandLine.Parse(os.Args[positionalArgs+1:]); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Failed to parse the commandline parameters, err=%v\n", err)
 		return
@@ -51,6 +52,7 @@ func main() {
 		gones.FreeRun(*freeRun),
 		gones.AudioLibrary(*audioLib),
 		gones.AudioLogging(*logAudio),
+		gones.SpriteLimit(*spriteLimit),
 	)
 
 	nes.Run()

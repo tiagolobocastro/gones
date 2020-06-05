@@ -142,7 +142,7 @@ func (p *Ppu) exec() {
 		}
 
 		if visibleCycle {
-			for i := range p.pOAM {
+			for i := uint8(0); i < p.maxSprites; i++ {
 				if p.pOAM[i].id == 64 {
 					continue
 				}

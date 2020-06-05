@@ -31,6 +31,10 @@ func (n *nes) setAudioLogging(log bool) error {
 	n.audioLog = log
 	return nil
 }
+func (n *nes) setSpriteLimit(limit bool) error {
+	n.spriteLimit = limit
+	return nil
+}
 
 func CartPath(path string) func(n *nes) error {
 	return func(n *nes) error {
@@ -59,5 +63,11 @@ func AudioLibrary(name string) func(n *nes) error {
 func AudioLogging(log bool) func(n *nes) error {
 	return func(n *nes) error {
 		return n.setAudioLogging(log)
+	}
+}
+
+func SpriteLimit(limit bool) func(n *nes) error {
+	return func(n *nes) error {
+		return n.setSpriteLimit(limit)
 	}
 }
