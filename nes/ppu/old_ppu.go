@@ -323,6 +323,7 @@ func (p *Ppu) execOldPpu() {
 		p.cycle = 0
 
 		if p.scanLine > 260 {
+			p.clearOAM()
 			p.scanLine = -1
 			// may already be cleared as reading from PPSTATUS will do so
 			p.clear(cpu.CpuIntNMI)
@@ -343,9 +344,9 @@ func (p *Ppu) drawPixel(x uint8, y uint8, c color.RGBA) {
 }
 
 func (p *Ppu) loadSprites() {
+	scanLine := uint8(p.scanLine)
 	_, spriteSizeY := p.getSpriteSize()
 	patternAddr := p.getSpritePattern()
-	evalLine := p.spriteEvalLine()
 
 	for i := uint8(0); i < p.maxSprites; i++ {
 
@@ -362,7 +363,7 @@ func (p *Ppu) loadSprites() {
 
 		// calculate line inside sprite for the next scanLine
 		// edit: seems like sprites are already arranged like so, meaning we can use the current?
-		lSpY := (evalLine - s.yPos) % spriteSizeY
+		lSpY := (scanLine - s.yPos) % spriteSizeY
 
 		// vertical flip
 		if (s.attributes & 0x80) != 0 {
@@ -388,27 +389,25 @@ func reverseByte(b uint8) uint8 {
 		((b & 0x10) >> 1) | ((b & 0x20) >> 3) |
 		((b & 0x40) >> 5) | ((b & 0x80) >> 7)
 }
-func (p *Ppu) spriteEvalLine() uint8 {
-	if p.scanLine < 239 {
-		return uint8(p.scanLine + 1)
-	} else {
-		return 0
-	}
-}
+
+// https://wiki.nesdev.com/w/index.php/PPU_sprite_evaluation
+// Sprite evaluation does not happen on the pre-render scanline. Because evaluation applies to the next line's
+// sprite rendering, no sprites will be rendered on the first scanline, and this is why there is a 1 line offset
+// on a sprite's Y coordinate. (and that's why we don't need to do "scanline+1")
 func (p *Ppu) evalSprites() {
+	scanLine := uint8(p.scanLine)
 	spriteCount := uint8(0)
-	evalScan := p.spriteEvalLine()
 
 	_, yLen := p.getSpriteSize()
 	for i := uint16(0); i < 64; i++ {
 
 		// 0 yPos, 1 index, 2 attr, 3 xPos => i*4
-		yPos := p.rOAM.Read8(i * 4)
+		yPos := p.rOAM.Read8(i * 4) // offset by 1
 		yPosEnd := yPos + yLen
 
 		// if the scanLine intersects the sprite, it's a "hit"
-		// copy sprite to the secondary OAM
-		if evalScan >= yPos && evalScan < yPosEnd {
+		// copy sprite to the scanLine OAM
+		if scanLine >= yPos && scanLine < yPosEnd {
 
 			if spriteCount >= p.maxSprites {
 				p.regs[PPUSTATUS].Set(statusSpriteOverflow)

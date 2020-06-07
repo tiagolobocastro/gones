@@ -144,7 +144,7 @@ func (p *Ppu) exec() {
 		if visibleCycle {
 			for i := uint8(0); i < p.maxSprites; i++ {
 				if p.pOAM[i].id == 64 {
-					continue
+					break
 				}
 
 				s := &p.pOAM[i]
@@ -198,6 +198,7 @@ func (p *Ppu) exec() {
 		p.cycle = 0
 
 		if p.scanLine > 260 {
+			p.clearOAM()
 			p.scanLine = -1
 		}
 	} else if p.cycle == 1 {
