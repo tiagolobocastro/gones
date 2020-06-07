@@ -353,6 +353,10 @@ func (p *Ppu) loadSprites() {
 		p.pOAM[i] = p.sOAM[i]
 		s := &p.pOAM[i]
 
+		if s.id == 64 {
+			break
+		}
+
 		addr := uint16(0)
 		if spriteSizeY == 16 {
 			// taken from HydraNes, have not verified this

@@ -62,9 +62,10 @@ func (m *MapperMMC1) writeInner(addr uint16, val uint8) {
 		m.writeCHRBank0(val)
 	case addr >= 0xC000 && addr <= 0xDFFF:
 		m.writeCHRBank1(val)
-	case addr >= 0xE000 && addr <= 0xFFFF:
+	case addr >= 0xE000:
 		m.writePRGBank(val)
 	}
+	m.updateAllBanks()
 }
 
 // Control (internal, $8000-$9FFF)
@@ -92,7 +93,6 @@ func (m *MapperMMC1) writeControl(val uint8) {
 	}
 	m.prgBankMode = (val >> 2) & 0x3
 	m.chrBankMode = val >> 4
-	m.updateAllBanks()
 }
 func (m *MapperMMC1) updateAllBanks() {
 	m.updateCHRBank0()
