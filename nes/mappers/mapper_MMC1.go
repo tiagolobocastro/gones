@@ -133,7 +133,6 @@ func (m *MapperMMC1) updateCHRBank0() {
 // +++++- Select 4 KB CHR bank at PPU $1000 (ignored in 8 KB mode)
 func (m *MapperMMC1) writeCHRBank1(val uint8) {
 	m.chrBank1 = val & 0x1f
-	m.updateCHRBank1()
 }
 func (m *MapperMMC1) updateCHRBank1() {
 	switch m.chrBankMode {

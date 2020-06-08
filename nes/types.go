@@ -54,6 +54,7 @@ const (
 	Nil       = "nil"
 	Beep      = "beep"
 	PortAudio = "portaudio"
+	Oto       = "oto"
 )
 
 type AudioSpeaker interface {
@@ -75,6 +76,8 @@ func NewSpeaker(lib AudioLib) AudioSpeaker {
 		speaker = new(speakers.SpeakerBeep)
 	case PortAudio:
 		speaker = new(speakers.SpeakerPort)
+	case Oto:
+		speaker = new(speakers.SpeakerOto)
 	default:
 		panic("Unknown speaker type!")
 	}

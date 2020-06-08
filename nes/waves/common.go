@@ -127,7 +127,6 @@ func (s *Sequencer) resetLow(value uint8) {
 func (s *Sequencer) resetHigh(value uint8) {
 	reload := (s.period.getPeriod() & 0xFF) | (uint16(value) << 8)
 	s.period.setPeriod(reload)
-	s.column = 0
 }
 
 func (s *Sequencer) tick() {
@@ -292,4 +291,8 @@ func (l *LinearCounter) tick() {
 	if !l.control {
 		l.reload = false
 	}
+}
+
+func (l *LinearCounter) mute() bool {
+	return l.counter == 0
 }
