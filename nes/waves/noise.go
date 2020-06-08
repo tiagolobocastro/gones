@@ -22,7 +22,7 @@ func (n *Noise) Init() {
 	n.duration.reset()
 	n.envelope.reset()
 	n.timer.reset()
-	n.enabled = true
+	n.enabled = false
 }
 func (n *Noise) Tick() {
 	n.clock++

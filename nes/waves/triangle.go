@@ -37,11 +37,19 @@ func (t *Triangle) Write8(addr uint16, val uint8) {
 }
 
 func (t *Triangle) dutyTable() [][]uint8 {
+	//return [][]uint8{
+	//	{15, 14, 13, 12, 11, 10, 9, 8,
+	//		7, 6, 5, 4, 3, 2, 1, 0,
+	//		0, 1, 2, 3, 4, 5, 6, 7, 8,
+	//		9, 10, 11, 12, 13, 14, 15},
+	//}
+	// offset the triangle to get rid of the initial pop as we don't have any low pass filters yet
+	// doesn't seem to cause any other noticeable difference
 	return [][]uint8{
-		{15, 14, 13, 12, 11, 10, 9, 8,
-			7, 6, 5, 4, 3, 2, 1, 0,
-			0, 1, 2, 3, 4, 5, 6, 7, 8,
-			9, 10, 11, 12, 13, 14, 15},
+		{0, 1, 2, 3, 4, 5, 6, 7, 8,
+			9, 10, 11, 12, 13, 14, 15,
+			15, 14, 13, 12, 11, 10, 9, 8,
+			7, 6, 5, 4, 3, 2, 1, 0},
 	}
 }
 
@@ -57,7 +65,7 @@ func (t *Triangle) Init() {
 	t.duration.reset()
 	t.sequencer.init(t.dutyTable(), t)
 	t.linearCnt.reset()
-	t.enabled = true
+	t.enabled = false
 }
 func (t *Triangle) Tick() {
 	t.clock++

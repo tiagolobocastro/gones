@@ -68,7 +68,7 @@ func (d *Dmc) Init(busInt common.BusInt) {
 	d.bitsRemaining = 0
 	d.silenceFlag = false
 	d.timer.reset()
-	d.enabled = true
+	d.enabled = false
 }
 func (d *Dmc) reload() {
 	if d.sampleLen == 0 {

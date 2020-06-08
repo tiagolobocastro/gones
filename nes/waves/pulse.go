@@ -33,7 +33,7 @@ func (p *Pulse) Init(pulseOne bool) {
 	p.sequencer.init(p.dutyTable(), p)
 	p.envelope.reset()
 	p.sweep.init(p)
-	p.enabled = true
+	p.enabled = false
 }
 func (p *Pulse) Tick() {
 	p.clock++
