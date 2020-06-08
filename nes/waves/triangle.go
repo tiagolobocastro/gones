@@ -31,7 +31,7 @@ func (t *Triangle) Write8(addr uint16, val uint8) {
 		// The sequencer is immediately restarted at the first value of the
 		// current sequence.
 		t.sequencer.resetHigh(val & 0x7)
-		t.duration.reload((val & 0xF8) >> 3)
+		t.duration.reload(val >> 3)
 		t.linearCnt.start()
 	}
 }
@@ -61,12 +61,9 @@ func (t *Triangle) Init() {
 }
 func (t *Triangle) Tick() {
 	t.clock++
-	// The sequencer is clocked by the timer as long as both the linear counter and the length counter are nonzero.
-	// ?
-	if t.linearCnt.counter == 0 && t.duration.mute() {
-		return
+	if !t.linearCnt.mute() && !t.duration.mute() {
+		t.sequencer.tick()
 	}
-	t.sequencer.tick()
 }
 
 func (t *Triangle) QuarterFrameTick() {
@@ -78,13 +75,7 @@ func (t *Triangle) HalfFrameTick() {
 
 func (t *Triangle) Sample() float64 {
 	output := t.sequencer.value()
-
-	if t.enabled && !t.duration.mute() &&
-		t.linearCnt.counter > 0 {
-		return float64(output)
-	} else {
-		return 0.0
-	}
+	return float64(output)
 }
 func (t *Triangle) Enabled() bool {
 	return !t.duration.mute()
