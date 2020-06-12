@@ -87,9 +87,9 @@ var buttons = [8]struct {
 	id  uint8
 	key pixelgl.Button
 }{
-	{bitA, pixelgl.KeyD},
-	{bitB, pixelgl.KeyF},
-	{bitSelect, pixelgl.KeyS},
+	{bitA, pixelgl.KeyS},
+	{bitB, pixelgl.KeyA},
+	{bitSelect, pixelgl.KeyLeftShift},
 	{bitStart, pixelgl.KeyEnter},
 	{bitUp, pixelgl.KeyUp},
 	{bitDown, pixelgl.KeyDown},

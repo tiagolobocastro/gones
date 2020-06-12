@@ -50,7 +50,8 @@ type Context struct {
 
 const (
 	CpuIntNMI = 1
-	//CpuIntIRQ = 2
+	CpuIntIRQ = 2
+	// split the IRQ into multiple sources?
 )
 
 type interrupt struct {
@@ -59,6 +60,12 @@ type interrupt struct {
 
 // interrupt
 func (c *Cpu) Raise(flag uint8) {
+	switch flag {
+	case CpuIntIRQ:
+		if (c.Rg.Spc.Ps.Read() & BI) == BI {
+			return
+		}
+	}
 	c.interrupts |= flag
 }
 
@@ -119,6 +126,7 @@ func (c *Cpu) Init(busInt common.BusExtInt, verbose bool) {
 func (c *Cpu) Reset() {
 	c.Rg.Init()
 	c.inInt = false
+	c.interrupts = 0
 	c.Rg.Spc.Pc.Write(c.Read16(0xFFFC))
 	c.curr.ins = nil
 }
@@ -181,12 +189,21 @@ func (c *Cpu) Logf(format string, a ...interface{}) {
 }
 
 func (c *Cpu) nmi() {
-	// do the other ones stay clear?? research this...
-	c.interrupts &= 0xFE
+	c.Clear(CpuIntNMI)
 	c._push16(c.Rg.Spc.Pc.Read())
 	c.php()
 	c.Rg.Spc.Pc.Write(c.Read16(0xFFFA))
 	c.inInt = true
+	c.Rg.Spc.Ps.Set(BI, BI)
+	c.clk += 7
+}
+func (c *Cpu) irq() {
+	c.Clear(CpuIntIRQ)
+	c._push16(c.Rg.Spc.Pc.Read())
+	c.php()
+	c.Rg.Spc.Pc.Write(c.Read16(0xFFFE))
+	c.inInt = true
+	c.Rg.Spc.Ps.Set(BI, BI)
 	c.clk += 7
 }
 
@@ -203,8 +220,8 @@ func (c *Cpu) exec() {
 	switch c.interrupts {
 	case CpuIntNMI:
 		c.nmi()
-		// nmi already bumped it by 7?
-		// c.clk += 7
+	case CpuIntIRQ:
+		c.irq()
 	}
 
 	c.curr.pgX = false

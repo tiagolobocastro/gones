@@ -1,5 +1,9 @@
 package gones
 
+import (
+	"log"
+)
+
 // CPU Mapping Table
 // Address range 	Size 	Device
 // $0000-$07FF 		$0800 	2KB internal RAM
@@ -25,17 +29,15 @@ func (m *cpuMapper) Read8(addr uint16) uint8 {
 
 	case addr < 0x4016:
 		// read from APU and I-O
-		//panic("address range not implemented!")
+		log.Panicf("read to address 0x%04x not implemented", addr)
 	case addr < 0x4018:
 		// Controller
 		return m.nes.ctrl.Read8(addr)
 	case addr < 0x4020:
-		// APU
-		return 0 // to test
-		//panic(fmt.Errorf("address range not implemented, addr: 0x%04x", addr))
+		log.Panicf("read to address 0x%04x not implemented", addr)
 	case addr < 0x6000:
 		// todo: not sure what these are
-		return 0
+		log.Panicf("read to address 0x%04x not implemented", addr)
 	default:
 		return m.nes.cart.Mapper.Read8(addr)
 	}
@@ -56,17 +58,15 @@ func (m *cpuMapper) Write8(addr uint16, val uint8) {
 	case addr == 0x4014:
 		m.nes.dma.Write8(addr, val)
 
-	case addr < 0x4016:
-		// I-O
-		//panic("address range not implemented!")
 	case addr < 0x4018:
-		// Controller
 		m.nes.ctrl.Write8(addr, val)
-	case addr < 0x4020:
-		// APU
-		panic("address range not implemented!")
+
+	case addr == 0x4025:
+		// FDS not implemented
+
 	case addr < 0x6000:
 		// todo: not sure what these are
+		log.Printf("write to address 0x%04x not implemented", addr)
 	default:
 		m.nes.cart.Mapper.Write8(addr, val)
 	}
@@ -131,8 +131,6 @@ func (m *ppuMapper) Read8(addr uint16) uint8 {
 		return m.nes.cart.Tables.Read8(addr - 0x1000)
 
 	// internal palette control - not configurable
-	case addr < 0x3F20:
-		return m.nes.ppu.Palette.Read8(addr % 32)
 	case addr < 0x4000:
 		return m.nes.ppu.Palette.Read8(addr % 32)
 	}

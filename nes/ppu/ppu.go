@@ -48,13 +48,15 @@ func (p *Ppu) exec() {
 	visibleCycle := p.cycle >= 1 && p.cycle <= 256
 	bgTileFetch := visibleCycle || (p.cycle >= 321 && p.cycle <= 336)
 
-	if p.showBackground() {
-		if renderFrame && bgTileFetch && p.showBackground() {
+	if p.showBackground() || p.showSprites() {
+		if renderFrame && bgTileFetch {
 
-			if visibleFrame && visibleCycle {
-				bgPix := p.getBgPixel()
-				p.bgIndex = bgPix & 0x3
-				p.bgPalette = (bgPix >> 2) & 0x3
+			if visibleFrame && visibleCycle && p.showBackground() {
+				if p.showBackgroundLeft() || x > 7 {
+					bgPix := p.getBgPixel()
+					p.bgIndex = bgPix & 0x3
+					p.bgPalette = (bgPix >> 2) & 0x3
+				}
 			}
 
 			p.updateShifter()
@@ -149,7 +151,7 @@ func (p *Ppu) exec() {
 
 				s := &p.pOAM[i]
 				xi := uint(x) - uint(s.xPos)
-				if xi < 8 {
+				if xi < 8 && (p.showSpritesLeft() || x > 7) {
 
 					bit := 8 - xi - 1
 
@@ -205,9 +207,20 @@ func (p *Ppu) exec() {
 		if vBlankLn {
 			p.raise(cpu.CpuIntNMI)
 		} else if preRenderLn {
-			// may already be cleared as reading from PPSTATUS will do so
 			p.clear(cpu.CpuIntNMI)
 			p.regs[PPUSTATUS].Clr(statusSpriteOverflow | statusSprite0Hit)
+		}
+	}
+
+	// the CPU and PPU are not quite synchronized and the CPU needs to sample the interrupt line
+	// eg, reading PPUSTATUS within 2 cycles of raising the interrupt can actually clear it
+	// in the emulator the PPU runs N*3 cpu cycles so it's hard to decide what the best way to deal with this is
+	// eg, no point of adding a "debounce" on the CPU if it runs for N cycles anyway...
+	// so, adding a simple delay in the PPU and letting the PPU read also reset the delay in addition to the NMI...
+	if p.interruptDelay > 0 {
+		p.interruptDelay--
+		if p.interruptDelay == 0 {
+			p.interrupts.Raise(cpu.CpuIntNMI)
 		}
 	}
 }

@@ -14,6 +14,7 @@ const (
 	mapperNROM = iota
 	mapperMMC1
 	mapperUnROM
+	mapperMMC2
 )
 
 type Mapper interface {
@@ -68,6 +69,10 @@ func (c *Cartridge) Init(cartPath string) error {
 		return err
 	}
 
+	if c.config.console != consoleNES {
+		log.Panicf("Unsupported console type %v", c.config.console)
+	}
+
 	if c.config.trainer {
 		trainer := make([]byte, 512)
 		if _, err = io.ReadFull(file, trainer); err != nil {
@@ -80,6 +85,7 @@ func (c *Cartridge) Init(cartPath string) error {
 	if _, err = c.prgRom.LoadFromFile(file); err != nil {
 		return err
 	}
+
 	c.prgRam.Init(c.config.prgRamSize)
 
 	c.chr.Init(c.config.chrRomSize, false)
@@ -98,12 +104,12 @@ func (c *Cartridge) Init(cartPath string) error {
 
 func (c *Cartridge) newCartMapper(mapper byte) Mapper {
 	switch mapper {
-	case mapperNROM:
+	case 0:
 		return &MapperNROM{cart: c}
-	case mapperMMC1:
+	case 1:
 		return &MapperMMC1{cart: c}
-	case mapperUnROM:
-		return &MapperNROM{cart: c}
+	case 2, 9:
+		return &MapperMMC2{cart: c}
 	default:
 		panic(fmt.Sprintf("mapper %v not supported!", mapper))
 	}

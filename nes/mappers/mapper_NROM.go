@@ -1,7 +1,7 @@
 package mappers
 
 import (
-	"fmt"
+	"log"
 )
 
 type MapperNROM struct {
@@ -30,6 +30,6 @@ func (m *MapperNROM) Write8(addr uint16, val uint8) {
 	case addr >= 0x6000 && addr <= 0x8000:
 		m.cart.prgRam.Write8(addr%0x6000, val)
 	default:
-		panic(fmt.Sprintf("write not implemented for %v!", addr))
+		log.Panicf("write not implemented for 0x%04x!", addr)
 	}
 }

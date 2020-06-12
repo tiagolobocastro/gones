@@ -172,12 +172,12 @@ func (p *Ppu) getGreyScale() uint8 {
 	return p.regs[PPUMASK].Val & 1
 }
 
-func (p *Ppu) showBackgroundLeft() uint8 {
-	return (p.regs[PPUMASK].Val & 2) >> 1
+func (p *Ppu) showBackgroundLeft() bool {
+	return (p.regs[PPUMASK].Val & 2) != 0
 }
 
-func (p *Ppu) showSpritesLeft() uint8 {
-	return (p.regs[PPUMASK].Val & 4) >> 2
+func (p *Ppu) showSpritesLeft() bool {
+	return (p.regs[PPUMASK].Val & 4) != 0
 }
 
 func (p *Ppu) showBackground() bool {

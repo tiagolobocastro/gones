@@ -67,6 +67,7 @@ type iNESConfig struct {
 	chrRomSize   int
 	chrRamSize   int
 	chrNVRamSize int
+	console      nesConsoleType
 }
 
 func (h *iNESHeader) MagicNumber() int32 {
@@ -147,6 +148,7 @@ func (h *iNES0Header) Config() iNESConfig {
 		chrRomSize:   int(h.CHR_ROMSize) * 8192,
 		chrRamSize:   0,
 		chrNVRamSize: 0,
+		console:      consoleNES,
 	}
 }
 
@@ -172,6 +174,7 @@ func (h *iNES1Header) Config() iNESConfig {
 		chrRomSize:   int(h.CHR_ROMSize) * 8192,
 		chrRamSize:   0,
 		chrNVRamSize: 0,
+		console:      nesConsoleType(h.Flags7 & 0x1),
 	}
 }
 
@@ -199,5 +202,33 @@ func (h *iNES2Header) Config() iNESConfig {
 		chrRomSize:   chrSize * 8192,
 		chrRamSize:   ramSize,
 		chrNVRamSize: nvRamSize,
+		console:      nesConsoleType(h.Flags7 & 0x3),
 	}
 }
+
+// Vs. PPU types (Header byte 13 D0..D3)
+//$D-F: reserved
+const (
+	VsPpuRP2C03B = iota
+	VsPpuRP2C03G
+	VsPpuRP2C041
+	VsPpuRP2C042
+	VsPpuRP2C043
+	VsPpuRP2C044
+	VsPpuRC2C03B
+	VsPpuRC2C03C
+	VsPpuRC2C051
+	VsPpuRC2C052
+	VsPpuRC2C053
+	VsPpuRC2C054
+	VsPpuRC2C055
+)
+
+type nesConsoleType uint8
+
+const (
+	consoleNES = iota
+	consoleVsSystem
+	consolePlayChoice10
+	consoleExtended
+)

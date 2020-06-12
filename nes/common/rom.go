@@ -24,9 +24,9 @@ func (r *Rom) Read16(addr uint16) uint16 {
 	return uint16(r.Read8(addr)) | uint16(r.Read8(addr+1))<<8
 }
 func (r *Rom) Write8(addr uint16, val uint8) {
-	r.Write8w(addr, val)
+	r.Write8w(uint32(addr), val)
 }
-func (r *Rom) Write8w(addr uint16, val uint8) {
+func (r *Rom) Write8w(addr uint32, val uint8) {
 	if r.writable {
 		r.rom[addr] = val
 	} else {

@@ -81,14 +81,15 @@ type Ppu struct {
 	frameBuffer *common.Framebuffer
 	buffered    bool
 
-	interrupts common.IiInterrupt
+	interrupts     common.IiInterrupt
+	interruptDelay uint8
 
 	finalScroll uint8
 	maxSprites  uint8 // max sprites per scanline, 8 is true to the NES hardware
 	spriteLimit bool
 }
 
-func (p *Ppu) Init(busInt common.BusInt, verbose bool, interrupts common.IiInterrupt, framebuffer *common.Framebuffer, spriteLimit bool) {
+func (p *Ppu) Init(busInt common.BusInt, interrupts common.IiInterrupt, verbose bool, framebuffer *common.Framebuffer, spriteLimit bool) {
 	p.verbose = verbose
 	p.BusInt = busInt
 	p.interrupts = interrupts
@@ -102,6 +103,7 @@ func (p *Ppu) Init(busInt common.BusInt, verbose bool, interrupts common.IiInter
 	if spriteLimit {
 		p.maxSprites = 8
 	}
+	p.interruptDelay = 0
 
 	p.rOAM.InitNfill(256, 0xfe)
 	p.Palette.init()
@@ -111,7 +113,7 @@ func (p *Ppu) Init(busInt common.BusInt, verbose bool, interrupts common.IiInter
 }
 
 func (p *Ppu) Reset() {
-	p.Init(p.BusInt, p.verbose, p.interrupts, p.frameBuffer, p.spriteLimit)
+	p.Init(p.BusInt, p.interrupts, p.verbose, p.frameBuffer, p.spriteLimit)
 }
 
 // interrupt
@@ -133,18 +135,15 @@ func (p *Ppu) raise(flag uint8) {
 		}
 
 		p.regs[PPUSTATUS].Val |= 0x80
-
 		if p.getNMIVertical() == 1 {
-			p.interrupts.Raise(flag & cpu.CpuIntNMI)
+			p.interruptDelay = 5
 		}
 	}
 }
 func (p *Ppu) clear(flag uint8) {
 	if (flag & cpu.CpuIntNMI) != 0 {
 		p.regs[PPUSTATUS].Val &= 0x7F
-		p.interrupts.Clear(flag & cpu.CpuIntNMI)
-
-		p.regs[PPUSTATUS].Clr(statusSpriteOverflow | statusSprite0Hit)
+		p.interruptDelay = 0
 	}
 }
 

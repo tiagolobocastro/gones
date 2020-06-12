@@ -43,6 +43,7 @@ func (p *ppuPalette) init() {
 		0xfcfcfc, 0xa8e4fc, 0xc4d4fc, 0xd4c8fc, 0xfcc4fc, 0xfcc4d8, 0xfcbcb0, 0xfcd8a8,
 		0xfce4a0, 0xe0fca0, 0xa8f0bc, 0xb0fccc, 0x9cfcf0, 0xc4c4c4, 0x000000, 0x000000,
 	}
+	_ = fceuxPalette
 
 	for i, c := range fceuxPalette {
 		r := byte(c >> 16)
@@ -90,6 +91,11 @@ func (p *ppuPalette) Read8(addr uint16) uint8 {
 	return p.indexes[addr]
 }
 func (p *ppuPalette) Write8(addr uint16, val uint8) {
+	// looks like some games writes val>0x3F
+	// not sure why but let's just cap it for now
+	val = val & 0x3F
+	addr = addr & 0x1F
+
 	if addr >= 16 && addr%4 == 0 {
 		addr -= 16
 	}

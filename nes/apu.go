@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/tiagolobocastro/gones/nes/common"
+	"github.com/tiagolobocastro/gones/nes/cpu"
 	"github.com/tiagolobocastro/gones/nes/waves"
 )
 
@@ -53,6 +54,7 @@ func (a *Apu) readStatusReg() uint8 {
 
 type Apu struct {
 	common.BusInt
+	interrupts common.IiInterrupt
 
 	pulse1 waves.Pulse
 	pulse2 waves.Pulse
@@ -70,6 +72,7 @@ type Apu struct {
 	frameCounter uint
 	frameStep    uint
 	frameMode    uint
+	frameIrqEn   bool
 
 	logAudio      bool
 	samples       uint
@@ -108,11 +111,13 @@ func (a *Apu) reset() {
 	a.frameCounter = 0
 	a.frameStep = 0
 	a.frameMode = 0
+	a.frameIrqEn = true
 
 	a.status.Initx("status", 0, a.writeStatusReg, a.readStatusReg)
 }
-func (a *Apu) init(busInt common.BusInt, verbose bool, logAudio bool, audioLib AudioLib) {
+func (a *Apu) init(busInt common.BusInt, interrupts common.IiInterrupt, verbose bool, logAudio bool, audioLib AudioLib) {
 	a.BusInt = busInt
+	a.interrupts = interrupts
 
 	a.verbose = verbose
 	a.logAudio = logAudio
@@ -223,6 +228,11 @@ func (a *Apu) halfFrameTick() {
 	a.noise.HalfFrameTick()
 }
 
+// mode 0:    mode 1:       function
+// ---------  -----------  -----------------------------
+//  - - - f    - - - - -    IRQ (if bit 6 is clear)
+//  - l - l    - l - - l    Length counter and sweep
+//  e e e e    e e e - e    Envelope and linear counter
 func (a *Apu) frameTick() {
 	a.frameCounter++
 
@@ -231,25 +241,33 @@ func (a *Apu) frameTick() {
 
 		if a.frameMode == 0 {
 			// 4 step sequence
-			a.frameStep = (a.frameStep + 1) % 4
+
 			// clock envelopes and triangle linear counter
 			a.quarterFrameTick()
 			if a.frameStep == 0 {
 				// set int flag if inhibit is clear
+				a.raiseIrq()
 			}
 		} else {
 			// 5 step sequence
 			a.frameStep = (a.frameStep + 1) % 5
-			// clock envelopes and triangle linear counter
-			if a.frameStep != 4 {
+			if a.frameStep != 3 {
+				// clock envelopes and triangle linear counter
 				a.quarterFrameTick()
 			}
 		}
 
-		if a.frameStep == 2 || a.frameStep == 0 {
+		if a.frameStep == 1 || a.frameStep == (a.frameMode+3) {
 			// clock len counters and sweep units
 			a.halfFrameTick()
 		}
+
+		a.frameStep = (a.frameStep + 1) % (a.frameMode + 4)
+	}
+}
+func (a *Apu) raiseIrq() {
+	if a.frameIrqEn {
+		a.interrupts.Raise(cpu.CpuIntIRQ)
 	}
 }
 
@@ -275,6 +293,7 @@ func (a *Apu) Write8(addr uint16, val uint8) {
 		a.status.Write(val)
 	case addr == 0x4017:
 		a.frameMode = uint(val & 0x80)
+		a.frameIrqEn = (val & 0x40) == 0
 		a.frameStep = 0
 		a.frameCounter = 0
 		if a.frameMode != 0 {

@@ -73,3 +73,19 @@ Usage of gones:
 
 -spritelimit flag
 >limit number of sprites per scanline to 8 (true to the NES)
+
+
+# Key Mapping
+NES -> Keyboard
+
+> A -> S
+
+> B -> A
+
+> Select -> LeftShift
+
+> Start -> Enter
+
+> Directional -> Directional
+
+> Turbo -> not implemented
