@@ -21,6 +21,7 @@ func NewNES(options ...func(*nes) error) *nes {
 }
 
 func (n *nes) Stop() {
+	n.cart.Stop()
 	n.apu.Stop()
 }
 

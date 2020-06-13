@@ -1,6 +1,7 @@
 package common
 
 import (
+	"crypto/md5"
 	"io"
 	"os"
 )
@@ -44,6 +45,10 @@ func (r *Rom) Write16(addr uint16, val uint16) {
 
 func (r *Rom) Size() int {
 	return len(r.rom)
+}
+
+func (r *Rom) Hash() [md5.Size]byte {
+	return md5.Sum(r.rom)
 }
 
 func (r *Rom) Init(size int, writable bool) {

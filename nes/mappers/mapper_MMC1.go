@@ -1,7 +1,8 @@
 package mappers
 
 import (
-	"fmt"
+	"log"
+
 	"github.com/tiagolobocastro/gones/nes/common"
 )
 
@@ -200,7 +201,8 @@ func (m *MapperMMC1) Read8(addr uint16) uint8 {
 		offset := uint32(addr - 0xC000)
 		return m.cart.prgRom.Read8w(m.prgBanks[1] + offset)
 	default:
-		panic(fmt.Sprintf("write not implemented for 0x%04x!", addr))
+		log.Panicf("read not implemented for 0x%04x!", addr)
+		return 0
 	}
 }
 func (m *MapperMMC1) Write8(addr uint16, val uint8) {
@@ -214,6 +216,6 @@ func (m *MapperMMC1) Write8(addr uint16, val uint8) {
 	case addr >= 0x8000:
 		m.writeLoad(addr, val)
 	default:
-		panic(fmt.Sprintf("write not implemented for 0x%04x!", addr))
+		log.Panicf("write not implemented for 0x%04x!", addr)
 	}
 }

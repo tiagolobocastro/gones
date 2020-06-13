@@ -1,5 +1,11 @@
 package common
 
+import (
+	"io"
+	"io/ioutil"
+	"os"
+)
+
 //	busInt
 type Ram struct {
 	ram []byte
@@ -25,6 +31,13 @@ func (r *Ram) Read8(addr uint16) uint8 {
 }
 func (r *Ram) Write8(addr uint16, val uint8) {
 	r.ram[addr] = val
+}
+
+func (r *Ram) LoadFromFile(file *os.File) (int, error) {
+	return io.ReadFull(file, r.ram)
+}
+func (r *Ram) SaveToFile(file *os.File) error {
+	return ioutil.WriteFile(file.Name(), r.ram, 0700)
 }
 
 // little endian

@@ -81,6 +81,10 @@ func (s *screen) runner() {
 		s.updateFpsTitle()
 		s.updateControllers()
 	}
+	// wait for nes to halt on "sync"
+	for len(s.framebuffer.FrameUpdated) != 0 {
+	}
+	s.nes.Stop()
 }
 
 var buttons = [8]struct {

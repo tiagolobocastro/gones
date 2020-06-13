@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/tiagolobocastro/gones/nes/common"
 )
@@ -87,6 +88,9 @@ func (c *Cartridge) Init(cartPath string) error {
 	}
 
 	c.prgRam.Init(c.config.prgRamSize)
+	if c.config.battery {
+		c.prgRam.LoadFromFile(c.getSaveFile())
+	}
 
 	c.chr.Init(c.config.chrRomSize, false)
 	if _, err = c.chr.LoadFromFile(file); err != nil {
@@ -100,6 +104,14 @@ func (c *Cartridge) Init(cartPath string) error {
 	c.Mapper.Init()
 	c.Tables.Init(common.NameTableMirroring(c.config.mirror))
 	return nil
+}
+
+func (c *Cartridge) Stop() {
+	if c.config.battery {
+		if err := c.prgRam.SaveToFile(c.getSaveFile()); err != nil {
+			log.Panicf("Failed to save game: %v", err)
+		}
+	}
 }
 
 func (c *Cartridge) newCartMapper(mapper byte) Mapper {
@@ -121,6 +133,33 @@ func (c *Cartridge) SetMirroring(mirroring common.NameTableMirroring) {
 
 func (c *Cartridge) WriteRom16(addr uint16, val uint16) {
 	c.prgRom.Write16(addr, val)
+}
+
+// must be called after the prgRom is loaded
+func (c *Cartridge) getSaveFile() *os.File {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		log.Panicf("Failed to get user homedir: %v", err)
+	}
+	_, romName := filepath.Split(c.cart)
+	// adding a a hash of the prgRom to help since I tend to use tmp images ("a.nes") for debugging ease
+	saveFolder := fmt.Sprintf("%s/.config/gones", homeDir)
+	save := fmt.Sprintf("%s/%s_%x", saveFolder, romName, c.prgRom.Hash())
+	if _, err := os.Stat(save); os.IsNotExist(err) {
+		if err := os.MkdirAll(saveFolder, 0700); err != nil {
+			log.Panicf("Failed to create save folder: %v", err)
+		}
+		f, err := os.Create(save)
+		if err != nil {
+			log.Panicf("Failed to create save file: %v", err)
+		}
+		f.Close()
+	}
+	f, err := os.Open(save)
+	if err != nil {
+		log.Panicf("Failed to open save file: %v", err)
+	}
+	return f
 }
 
 // BusInt
