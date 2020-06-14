@@ -83,6 +83,7 @@ type Ppu struct {
 
 	interrupts     common.IiInterrupt
 	interruptDelay uint8
+	nmiLinePulled  bool
 
 	finalScroll uint8
 	maxSprites  uint8 // max sprites per scanline, 8 is true to the NES hardware
@@ -116,31 +117,38 @@ func (p *Ppu) Reset() {
 	p.Init(p.BusInt, p.interrupts, p.verbose, p.frameBuffer, p.spriteLimit)
 }
 
-// interrupt
-// only look at the CPU NMI for now
-// need to implement the interrupt delay as well since the cpu and ppu and not on the same clock
-func (p *Ppu) raise(flag uint8) {
-	if (flag & cpu.CpuIntNMI) != 0 {
+func (p *Ppu) startVBlank() {
+	p.frameBuffer.Frames++
 
-		p.frameBuffer.Frames++
+	if p.buffered {
+		p.frameBuffer.FrameIndex ^= 1
+	}
 
-		if p.buffered {
-			p.frameBuffer.FrameIndex ^= 1
-		}
+	select {
+	case p.frameBuffer.FrameUpdated <- true:
+		// todo: control "vsync" channel
+		//default:
+	}
 
-		select {
-		case p.frameBuffer.FrameUpdated <- true:
-			// todo: control "vsync" channel
-			//default:
-		}
+	p.setVBlank()
+	p.checkNMI()
+}
+func (p *Ppu) stopVBlank() {
+	p.clearInt(cpu.CpuIntNMI)
+	p.regs[PPUSTATUS].Clr(statusSpriteOverflow | statusSprite0Hit)
+}
 
-		p.regs[PPUSTATUS].Val |= 0x80
-		if p.getNMIVertical() == 1 {
+func (p *Ppu) checkNMI() {
+	pullNMI := p.getVBlank() && p.getNMIVertical()
+	// NMI is edge sensitive
+	if pullNMI && !p.nmiLinePulled {
+		if p.interruptDelay == 0 {
 			p.interruptDelay = 5
 		}
 	}
+	p.nmiLinePulled = pullNMI
 }
-func (p *Ppu) clear(flag uint8) {
+func (p *Ppu) clearInt(flag uint8) {
 	if (flag & cpu.CpuIntNMI) != 0 {
 		p.regs[PPUSTATUS].Val &= 0x7F
 		p.interruptDelay = 0
@@ -324,10 +332,9 @@ func (p *Ppu) execOldPpu() {
 		if p.scanLine > 260 {
 			p.clearOAM()
 			p.scanLine = -1
-			// may already be cleared as reading from PPSTATUS will do so
-			p.clear(cpu.CpuIntNMI)
+			p.stopVBlank()
 		} else if p.scanLine == 241 {
-			p.raise(cpu.CpuIntNMI)
+			p.startVBlank()
 		} else if p.scanLine == 242 {
 			p.nameTable = p.regs[PPUCTRL].Val & 0x3
 		}

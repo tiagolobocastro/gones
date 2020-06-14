@@ -142,8 +142,8 @@ func (p *Ppu) getMasterSlaveSelect() uint8 {
 	return (p.regs[PPUCTRL].Val & 64) >> 6
 }
 
-func (p *Ppu) getNMIVertical() uint8 {
-	return (p.regs[PPUCTRL].Val & 128) >> 7
+func (p *Ppu) getNMIVertical() bool {
+	return (p.regs[PPUCTRL].Val & 128) != 0
 }
 
 func (p *Ppu) writeControl() {
@@ -151,6 +151,12 @@ func (p *Ppu) writeControl() {
 
 	// t: ....BA.. ........ = d: ......BA
 	p.tRAM.setNameTables(uint16(val))
+
+	// "Late" NMI
+	//if p.getNMIVertical() && p.getVBlank() {
+	//	go fmt.Print("NMI")
+	//}
+	p.checkNMI()
 }
 
 /* PPU Mask
@@ -230,10 +236,17 @@ func (p *Ppu) setLastRegWrite(val uint8) {
 	p.regs[PPUSTATUS].Val = (p.regs[PPUSTATUS].Val & 0xE0) | (val & 0x1F)
 }
 
+func (p *Ppu) setVBlank() {
+	p.regs[PPUSTATUS].Val |= 0x80
+}
+func (p *Ppu) getVBlank() bool {
+	return p.regs[PPUSTATUS].Val&0x80 != 0
+}
+
 func (p *Ppu) readPPUStatus() uint8 {
 	val := p.regs[PPUSTATUS].Val
 
-	p.clear(cpu.CpuIntNMI) // clear vblank
+	p.clearInt(cpu.CpuIntNMI) // clear vblank
 	p.wToggle.Val = 0
 	// Race Condition Warning: Reading PPUSTATUS within two cycles of the start of vertical blank will return 0
 	// in bit 7 but clear the latch anyway, causing NMI to not occur that frame. See NMI and PPU_frame_timing for details.

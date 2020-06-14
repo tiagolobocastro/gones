@@ -205,10 +205,9 @@ func (p *Ppu) exec() {
 		}
 	} else if p.cycle == 1 {
 		if vBlankLn {
-			p.raise(cpu.CpuIntNMI)
+			p.startVBlank()
 		} else if preRenderLn {
-			p.clear(cpu.CpuIntNMI)
-			p.regs[PPUSTATUS].Clr(statusSpriteOverflow | statusSprite0Hit)
+			p.stopVBlank()
 		}
 	}
 

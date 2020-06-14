@@ -26,7 +26,9 @@ func (s *SpeakerBeep) Play() {
 func (s *SpeakerBeep) Reset() {}
 func (s *SpeakerBeep) Stop() {
 	if s.sampleRate != 0 {
+		speaker.Lock()
 		speaker.Close()
+		speaker.Unlock()
 	}
 }
 func (s *SpeakerBeep) BufferReady() bool {
