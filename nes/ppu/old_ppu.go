@@ -136,6 +136,7 @@ func (p *Ppu) startVBlank() {
 func (p *Ppu) stopVBlank() {
 	p.clearInt(cpu.CpuIntNMI)
 	p.regs[PPUSTATUS].Clr(statusSpriteOverflow | statusSprite0Hit)
+	p.checkNMI()
 }
 
 func (p *Ppu) checkNMI() {
@@ -146,7 +147,8 @@ func (p *Ppu) checkNMI() {
 			p.interruptDelay = 5
 		}
 	}
-	p.nmiLinePulled = pullNMI
+
+	p.nmiLinePulled = pullNMI || p.interruptDelay > 0
 }
 func (p *Ppu) clearInt(flag uint8) {
 	if (flag & cpu.CpuIntNMI) != 0 {
