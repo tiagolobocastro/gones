@@ -2,10 +2,12 @@ package ppu
 
 import (
 	"encoding/binary"
-	"github.com/tiagolobocastro/gones/nes/mappers"
 	"image/color"
 	"log"
 	"os"
+
+	"github.com/tiagolobocastro/gones/nes/common"
+	"github.com/tiagolobocastro/gones/nes/mappers"
 )
 
 type ppuPalette struct {
@@ -108,4 +110,11 @@ func (p *ppuPalette) Read16(uint16) uint16 {
 }
 func (p *ppuPalette) Write16(uint16, uint16) {
 	panic("oops")
+}
+
+func (p *ppuPalette) Serialise(s common.Serialiser) error {
+	return s.Serialise(p.indexes)
+}
+func (p *ppuPalette) DeSerialise(s common.Serialiser) error {
+	return s.DeSerialise(&p.indexes)
 }

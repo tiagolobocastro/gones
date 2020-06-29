@@ -1,5 +1,9 @@
 package waves
 
+import (
+	"github.com/tiagolobocastro/gones/nes/common"
+)
+
 type Pulse struct {
 	dutyCycleMode uint8 // 0,1,2,3
 
@@ -16,6 +20,20 @@ type Pulse struct {
 	clock   uint64
 	period  uint16
 	enabled bool
+}
+
+func (p *Pulse) Serialise(s common.Serialiser) error {
+	s.Serialise(
+		&p.sequencer, &p.duration, &p.envelope, &p.sweep,
+		p.dutyCycleMode, p.constVolume, p.volume, p.clock, p.period, p.enabled,
+	)
+	return nil
+}
+func (p *Pulse) DeSerialise(s common.Serialiser) error {
+	return s.DeSerialise(
+		&p.sequencer, &p.duration, &p.envelope, &p.sweep,
+		&p.dutyCycleMode, &p.constVolume, &p.volume, &p.clock, &p.period, &p.enabled,
+	)
 }
 
 func (p *Pulse) setPeriod(period uint16) {

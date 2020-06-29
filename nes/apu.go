@@ -88,6 +88,23 @@ type Apu struct {
 	sampleTargetTicks float64
 }
 
+func (a *Apu) Serialise(s common.Serialiser) error {
+	return s.Serialise(
+		&a.pulse1, &a.pulse2, &a.triangle, &a.noise, &a.dmc,
+		a.clock, a.enabled, a.frameCounter, a.frameStep, a.frameMode, a.frameIrqEn,
+		a.status, a.sampleTicks, a.sampleTargetTicks, a.samples, a.samplesTotal,
+		a.sampleLogTime,
+	)
+}
+func (a *Apu) DeSerialise(s common.Serialiser) error {
+	return s.DeSerialise(
+		&a.pulse1, &a.pulse2, &a.triangle, &a.noise, &a.dmc,
+		&a.clock, &a.enabled, &a.frameCounter, &a.frameStep, &a.frameMode, &a.frameIrqEn,
+		&a.status, &a.sampleTicks, &a.sampleTargetTicks, &a.samples, &a.samplesTotal,
+		&a.sampleLogTime,
+	)
+}
+
 func (a *Apu) reset() {
 	if !a.enabled {
 		return

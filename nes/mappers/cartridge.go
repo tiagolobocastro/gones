@@ -89,7 +89,7 @@ func (c *Cartridge) Init(cartPath string) error {
 
 	c.prgRam.Init(c.config.prgRamSize)
 	if c.config.battery {
-		c.prgRam.LoadFromFile(c.getSaveFile())
+		c.prgRam.LoadFromFile(c.getRamSaveFile())
 	}
 
 	c.chr.Init(c.config.chrRomSize, false)
@@ -108,10 +108,21 @@ func (c *Cartridge) Init(cartPath string) error {
 
 func (c *Cartridge) Stop() {
 	if c.config.battery {
-		if err := c.prgRam.SaveToFile(c.getSaveFile()); err != nil {
+		if err := c.prgRam.SaveToFile(c.getRamSaveFile()); err != nil {
 			log.Panicf("Failed to save game: %v", err)
 		}
 	}
+}
+
+func (c *Cartridge) Reset() {
+	c.Init(c.cart)
+}
+
+func (c *Cartridge) Serialise(s common.Serialiser) error {
+	return s.Serialise(c.prgRom, c.prgRam, c.chr, c.ram, &c.Tables, c.Mapper)
+}
+func (c *Cartridge) DeSerialise(s common.Serialiser) error {
+	return s.DeSerialise(c.prgRom, c.prgRam, c.chr, c.ram, &c.Tables, c.Mapper)
 }
 
 func (c *Cartridge) newCartMapper(mapper byte) Mapper {
@@ -136,7 +147,7 @@ func (c *Cartridge) WriteRom16(addr uint16, val uint16) {
 }
 
 // must be called after the prgRom is loaded
-func (c *Cartridge) getSaveFile() *os.File {
+func (c *Cartridge) getRamSaveFile() *os.File {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		log.Panicf("Failed to get user homedir: %v", err)
@@ -158,6 +169,32 @@ func (c *Cartridge) getSaveFile() *os.File {
 	f, err := os.Open(save)
 	if err != nil {
 		log.Panicf("Failed to open save file: %v", err)
+	}
+	return f
+}
+
+func (c *Cartridge) GetStateSaveFile() *os.File {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		log.Panicf("Failed to get user homedir: %v", err)
+	}
+	_, romName := filepath.Split(c.cart)
+	// adding a a hash of the prgRom to help since I tend to use tmp images ("a.nes") for debugging ease
+	saveFolder := fmt.Sprintf("%s/.config/gones", homeDir)
+	save := fmt.Sprintf("%s/%s_%x", saveFolder, romName, c.prgRom.Hash())
+	if _, err := os.Stat(save); os.IsNotExist(err) {
+		if err := os.MkdirAll(saveFolder, 0700); err != nil {
+			log.Panicf("Failed to create save folder: %v", err)
+		}
+		f, err := os.Create(save)
+		if err != nil {
+			log.Panicf("Failed to create state save file: %v", err)
+		}
+		f.Close()
+	}
+	f, err := os.OpenFile(save, os.O_CREATE|os.O_RDWR, os.ModeExclusive)
+	if err != nil {
+		log.Panicf("Failed to open state save file: %v", err)
 	}
 	return f
 }

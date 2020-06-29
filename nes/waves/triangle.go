@@ -1,5 +1,9 @@
 package waves
 
+import (
+	"github.com/tiagolobocastro/gones/nes/common"
+)
+
 type Triangle struct {
 	volume uint8
 
@@ -10,6 +14,19 @@ type Triangle struct {
 	clock   uint64
 	period  uint16
 	enabled bool
+}
+
+func (t *Triangle) Serialise(s common.Serialiser) error {
+	return s.Serialise(
+		&t.sequencer, &t.duration, &t.linearCnt,
+		t.volume, t.clock, t.period, t.enabled,
+	)
+}
+func (t *Triangle) DeSerialise(s common.Serialiser) error {
+	return s.DeSerialise(
+		&t.sequencer, &t.duration, &t.linearCnt,
+		&t.volume, &t.clock, &t.period, &t.enabled,
+	)
 }
 
 func (t *Triangle) Write8(addr uint16, val uint8) {

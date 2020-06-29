@@ -1,5 +1,9 @@
 package gones
 
+import (
+	"github.com/tiagolobocastro/gones/nes/common"
+)
+
 const (
 	bitA = iota
 	bitB
@@ -15,9 +19,32 @@ type nesController struct {
 	buttons   [8]uint8
 	targetBit uint8
 }
+
+func (n *nesController) Serialise(s common.Serialiser) error {
+	return s.Serialise(n.buttons, n.targetBit)
+}
+func (n *nesController) DeSerialise(s common.Serialiser) error {
+	return s.DeSerialise(&n.buttons, &n.targetBit)
+}
+
 type controllers struct {
 	controllers [2]nesController
 	strobe      uint8
+}
+
+func (c *controllers) Serialise(s common.Serialiser) error {
+	for _, e := range c.controllers {
+		e.Serialise(s)
+	}
+	s.Serialise(c.strobe)
+	return nil
+}
+func (c *controllers) DeSerialise(s common.Serialiser) error {
+	for _, e := range c.controllers {
+		e.DeSerialise(s)
+	}
+	s.DeSerialise(&c.strobe)
+	return nil
 }
 
 func (c *controllers) readButton(controllerId uint8) uint8 {
@@ -36,6 +63,10 @@ func (c *controllers) readButton(controllerId uint8) uint8 {
 func (c *controllers) init() {
 	c.controllers = [2]nesController{}
 	c.strobe = 0
+}
+
+func (c *controllers) Reset() {
+	c.init()
 }
 
 // use interface

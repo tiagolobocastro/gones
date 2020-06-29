@@ -11,8 +11,8 @@ type Ram struct {
 	ram []byte
 }
 
-func (r *Ram) size() uint16 {
-	return uint16(len(r.ram))
+func (r *Ram) size() int {
+	return len(r.ram)
 }
 
 func (r *Ram) Init(size int) {
@@ -24,6 +24,14 @@ func (r *Ram) InitNfill(size int, fill uint8) {
 	for i := range r.ram {
 		r.ram[i] = fill
 	}
+}
+
+func (r *Ram) Serialise(s Serialiser) error {
+	return s.Serialise(r.ram)
+}
+func (r *Ram) DeSerialise(s Serialiser) error {
+	r.InitNfill(r.size(), 0)
+	return s.DeSerialise(&r.ram)
 }
 
 func (r *Ram) Read8(addr uint16) uint8 {

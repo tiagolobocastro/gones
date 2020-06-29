@@ -2,6 +2,8 @@ package mappers
 
 import (
 	"log"
+
+	"github.com/tiagolobocastro/gones/nes/common"
 )
 
 type MapperNROM struct {
@@ -32,4 +34,11 @@ func (m *MapperNROM) Write8(addr uint16, val uint8) {
 	default:
 		log.Panicf("write not implemented for 0x%04x!", addr)
 	}
+}
+
+func (m *MapperNROM) Serialise(s common.Serialiser) error {
+	return nil
+}
+func (m *MapperNROM) DeSerialise(s common.Serialiser) error {
+	return nil
 }

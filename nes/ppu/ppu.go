@@ -1,6 +1,9 @@
 package ppu
 
-import "github.com/tiagolobocastro/gones/nes/cpu"
+import (
+	"github.com/tiagolobocastro/gones/nes/common"
+	"github.com/tiagolobocastro/gones/nes/cpu"
+)
 
 func (p *Ppu) updateShifter() {
 	// palette and pixel index
@@ -222,4 +225,25 @@ func (p *Ppu) exec() {
 			p.interrupts.Raise(cpu.CpuIntNMI)
 		}
 	}
+}
+
+func (p *Ppu) Serialise(s common.Serialiser) error {
+	return s.Serialise(
+		&p.rOAM, &p.Palette, p.pOAM, p.sOAM,
+		p.clock, p.cycle, p.scanLine, p.frames, p.regs, p.vRAM, p.tRAM,
+		p.xFine, p.wToggle, p.nametableEntry, p.attributeEntry, p.lowOrderByte,
+		p.highOrderByte, p.tileData, p.rowShifter, p.nameTable, p.xScroll, p.vRAMBuffer,
+		p.bgIndex, p.bgPalette, p.fgIndex, p.fgPalette, p.fgPriority, p.buffered,
+		p.interruptDelay, p.nmiLinePulled, p.finalScroll, p.maxSprites, p.spriteLimit,
+	)
+}
+func (p *Ppu) DeSerialise(s common.Serialiser) error {
+	return s.DeSerialise(
+		&p.rOAM, &p.Palette, p.pOAM, p.sOAM,
+		&p.clock, &p.cycle, &p.scanLine, &p.frames, &p.regs, &p.vRAM, &p.tRAM,
+		&p.xFine, &p.wToggle, &p.nametableEntry, &p.attributeEntry, &p.lowOrderByte,
+		&p.highOrderByte, &p.tileData, &p.rowShifter, &p.nameTable, &p.xScroll, &p.vRAMBuffer,
+		&p.bgIndex, &p.bgPalette, &p.fgIndex, &p.fgPalette, &p.fgPriority, &p.buffered,
+		&p.interruptDelay, &p.nmiLinePulled, &p.finalScroll, &p.maxSprites, &p.spriteLimit,
+	)
 }

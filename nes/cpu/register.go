@@ -28,7 +28,7 @@ const (
 )
 
 type ps_register struct {
-	bit [8]byte
+	Bit [8]byte
 
 	name string
 }
@@ -63,83 +63,83 @@ type Registers struct {
 
 func (psr *ps_register) Read() uint8 {
 	return 0 |
-		psr.bit[C]<<C |
-		psr.bit[Z]<<Z |
-		psr.bit[I]<<I |
-		psr.bit[D]<<D |
-		psr.bit[B]<<B |
-		psr.bit[E]<<E |
-		psr.bit[V]<<V |
-		psr.bit[N]<<N
+		psr.Bit[C]<<C |
+		psr.Bit[Z]<<Z |
+		psr.Bit[I]<<I |
+		psr.Bit[D]<<D |
+		psr.Bit[B]<<B |
+		psr.Bit[E]<<E |
+		psr.Bit[V]<<V |
+		psr.Bit[N]<<N
 }
 
 func (psr *ps_register) Set(flags int, value int8) {
 
 	if (flags & BC) == BC {
 		if value&BC == BC {
-			psr.bit[C] = 1
+			psr.Bit[C] = 1
 		} else {
-			psr.bit[C] = 0
+			psr.Bit[C] = 0
 		}
 	}
 	if (flags & BD) == BD {
 		if value&BD == BD {
-			psr.bit[D] = 1
+			psr.Bit[D] = 1
 		} else {
-			psr.bit[D] = 0
+			psr.Bit[D] = 0
 		}
 	}
 	if (flags & BZ) == BZ {
 		if value == 0 {
-			psr.bit[Z] = 1
+			psr.Bit[Z] = 1
 		} else {
-			psr.bit[Z] = 0
+			psr.Bit[Z] = 0
 		}
 	}
 	if (flags & BN) == BN {
 		if value < 0 {
-			psr.bit[N] = 1
+			psr.Bit[N] = 1
 		} else {
-			psr.bit[N] = 0
+			psr.Bit[N] = 0
 		}
 	}
 	if (flags & BB) == BB {
 		if value&BB == BB {
-			psr.bit[B] = 1
+			psr.Bit[B] = 1
 		} else {
-			psr.bit[B] = 0
+			psr.Bit[B] = 0
 		}
 	}
 	if (flags & BI) == BI {
 		if value&BI == BI {
-			psr.bit[I] = 1
+			psr.Bit[I] = 1
 		} else {
-			psr.bit[I] = 0
+			psr.Bit[I] = 0
 		}
 	}
 	if (flags & BV) == BV {
 		if value&BV == BV {
-			psr.bit[V] = 1
+			psr.Bit[V] = 1
 		} else {
-			psr.bit[V] = 0
+			psr.Bit[V] = 0
 		}
 	}
 }
 
 func (psr *ps_register) Write(value uint8) {
-	psr.bit[C] = (value >> C) & 1
-	psr.bit[Z] = (value >> Z) & 1
-	psr.bit[I] = (value >> I) & 1
-	psr.bit[D] = (value >> D) & 1
-	psr.bit[B] = (value >> B) & 1
-	psr.bit[E] = (value >> E) & 1
-	psr.bit[V] = (value >> V) & 1
-	psr.bit[N] = (value >> N) & 1
+	psr.Bit[C] = (value >> C) & 1
+	psr.Bit[Z] = (value >> Z) & 1
+	psr.Bit[I] = (value >> I) & 1
+	psr.Bit[D] = (value >> D) & 1
+	psr.Bit[B] = (value >> B) & 1
+	psr.Bit[E] = (value >> E) & 1
+	psr.Bit[V] = (value >> V) & 1
+	psr.Bit[N] = (value >> N) & 1
 }
 
 func (psr ps_register) String() string {
 	return fmt.Sprintf("%s: 0x%02x (N:%d V:%d E:%d B:%d D:%d I:%d Z:%d C:%d)", psr.name, psr.Read(),
-		psr.bit[N], psr.bit[V], psr.bit[E], psr.bit[B], psr.bit[D], psr.bit[I], psr.bit[Z], psr.bit[C])
+		psr.Bit[N], psr.Bit[V], psr.Bit[E], psr.Bit[B], psr.Bit[D], psr.Bit[I], psr.Bit[Z], psr.Bit[C])
 }
 
 func (psr ps_register) String2() string {

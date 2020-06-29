@@ -1,5 +1,9 @@
 package waves
 
+import (
+	"github.com/tiagolobocastro/gones/nes/common"
+)
+
 const (
 	channelPulse1 = iota
 	channelPulse2
@@ -41,6 +45,13 @@ type DurationCounter struct {
 	halt    bool
 }
 
+func (d *DurationCounter) Serialise(s common.Serialiser) error {
+	return s.Serialise(d.counter, d.halt)
+}
+func (d *DurationCounter) DeSerialise(s common.Serialiser) error {
+	return s.DeSerialise(&d.counter, &d.halt)
+}
+
 func (d *DurationCounter) tick() {
 	if !d.halt && d.counter > 0 {
 		d.counter--
@@ -65,6 +76,13 @@ type Timer struct {
 
 	timer  uint16 // 12bit timer, max val is 4068
 	reload uint16
+}
+
+func (t *Timer) Serialise(s common.Serialiser) error {
+	return s.Serialise(t.clock, t.timer, t.reload)
+}
+func (t *Timer) DeSerialise(s common.Serialiser) error {
+	return s.DeSerialise(&t.clock, &t.timer, &t.reload)
 }
 
 func (t *Timer) reset() {
@@ -101,6 +119,13 @@ type Sequencer struct {
 	column uint8
 
 	period timerPeriodInterface
+}
+
+func (s *Sequencer) Serialise(sr common.Serialiser) error {
+	return sr.Serialise(s.clock, s.timer, s.table, s.width, s.row, s.column)
+}
+func (s *Sequencer) DeSerialise(sr common.Serialiser) error {
+	return sr.DeSerialise(&s.clock, &s.timer, &s.table, &s.width, &s.row, &s.column)
 }
 
 func (s *Sequencer) init(table [][]uint8, period timerPeriodInterface) {
@@ -154,6 +179,13 @@ type Envelope struct {
 	decay   uint8
 }
 
+func (e *Envelope) Serialise(s common.Serialiser) error {
+	return s.Serialise(e.start, e.loop, e.divider, e.reload, e.decay)
+}
+func (e *Envelope) DeSerialise(s common.Serialiser) error {
+	return s.DeSerialise(&e.start, &e.loop, &e.divider, &e.reload, &e.decay)
+}
+
 func (e *Envelope) reset() {
 	e.start = false
 	e.loop = false
@@ -193,6 +225,13 @@ type Sweep struct {
 	dividerReload uint8
 
 	pulse timerPeriodInterface
+}
+
+func (s *Sweep) Serialise(sr common.Serialiser) error {
+	return sr.Serialise(s.reload, s.enabled, s.negate, s.shift, s.divider, s.dividerReload)
+}
+func (s *Sweep) DeSerialise(sr common.Serialiser) error {
+	return sr.DeSerialise(&s.reload, &s.enabled, &s.negate, &s.shift, &s.divider, &s.dividerReload)
 }
 
 func (s *Sweep) init(pulse timerPeriodInterface) {
@@ -259,6 +298,13 @@ type LinearCounter struct {
 
 	reload  bool
 	control bool
+}
+
+func (l *LinearCounter) Serialise(s common.Serialiser) error {
+	return s.Serialise(l.counterReload, l.counter, l.reload, l.control)
+}
+func (l *LinearCounter) DeSerialise(s common.Serialiser) error {
+	return s.DeSerialise(&l.counterReload, &l.counter, &l.reload, &l.control)
 }
 
 func (l *LinearCounter) reset() {

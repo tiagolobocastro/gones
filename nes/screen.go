@@ -2,13 +2,15 @@ package gones
 
 import (
 	"fmt"
-	"github.com/faiface/pixel"
-	"github.com/faiface/pixel/pixelgl"
-	"github.com/tiagolobocastro/gones/nes/common"
 	"image/color"
 	"os"
 	"runtime"
 	"time"
+
+	"github.com/faiface/pixel"
+	"github.com/faiface/pixel/pixelgl"
+
+	"github.com/tiagolobocastro/gones/nes/common"
 )
 
 type screen struct {
@@ -27,6 +29,13 @@ type screen struct {
 	// FPS stats
 	fpsChannel   <-chan time.Time
 	fpsLastFrame int
+}
+
+func (s *screen) Serialise(sr common.Serialiser) error {
+	return sr.Serialise(s.buffer0, s.buffer1, s.framebuffer.FrameIndex)
+}
+func (s *screen) DeSerialise(sr common.Serialiser) error {
+	return sr.DeSerialise(&s.buffer0, &s.buffer1, &s.framebuffer.FrameIndex)
 }
 
 func (s *screen) init(nes *nes) {
@@ -111,8 +120,18 @@ func (s *screen) updateControllers() {
 		}
 	}
 
-	if s.window.Pressed(pixelgl.KeyLeftControl) && s.window.Pressed(pixelgl.KeyR) {
+	if s.window.Pressed(pixelgl.KeyLeftControl) && s.window.JustPressed(pixelgl.KeyR) {
 		s.nes.Reset()
+		onePressed = true
+	}
+	if s.window.JustPressed(pixelgl.KeyLeftControl) && s.window.Pressed(pixelgl.KeyS) ||
+		s.window.JustPressed(pixelgl.KeyS) && s.window.Pressed(pixelgl.KeyLeftControl) {
+		s.nes.Save()
+		onePressed = true
+	}
+	if s.window.JustPressed(pixelgl.KeyLeftControl) && s.window.Pressed(pixelgl.KeyL) ||
+		s.window.JustPressed(pixelgl.KeyL) && s.window.Pressed(pixelgl.KeyLeftControl) {
+		s.nes.Load()
 		onePressed = true
 	}
 

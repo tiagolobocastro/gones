@@ -23,6 +23,13 @@ type NameTables struct {
 	Mirroring NameTableMirroring
 }
 
+func (n *NameTables) Serialise(s Serialiser) error {
+	return s.Serialise(&n.vRam, n.Mirroring)
+}
+func (n *NameTables) DeSerialise(s Serialiser) error {
+	return s.DeSerialise(&n.vRam, &n.Mirroring)
+}
+
 func (n *NameTables) Init(defaultMirror NameTableMirroring) {
 	n.vRam.Init(0x800)
 	n.Mirroring = defaultMirror

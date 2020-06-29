@@ -89,3 +89,13 @@ NES -> Keyboard
 > Directional -> Directional
 
 > Turbo -> not implemented
+
+## Special Key Mappings
+
+These can be used to soft reset the emulator and also save/load state (especially useful on those trickier levels ;) )
+
+> Reset -> LeftCtrl + R 
+
+> Save state -> LeftCtrl + S
+
+> Load state -> LeftCtrl + L  

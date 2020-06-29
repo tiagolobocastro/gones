@@ -18,6 +18,13 @@ type dma struct {
 	delay bool
 }
 
+func (d *dma) Serialise(s common.Serialiser) error {
+	return s.Serialise(d.clock, d.nBytes, d.byteRd, d.cpuAddr, d.ppuAddr, d.delay)
+}
+func (d *dma) DeSerialise(s common.Serialiser) error {
+	return s.DeSerialise(&d.clock, &d.nBytes, &d.byteRd, &d.cpuAddr, &d.ppuAddr, &d.delay)
+}
+
 func (d *dma) init(busInt common.BusInt) {
 	d.BusInt = busInt
 	d.nBytes = 0

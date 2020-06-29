@@ -131,6 +131,19 @@ func (c *Cpu) Reset() {
 	c.curr.ins = nil
 }
 
+func (c *Cpu) Serialise(s common.Serialiser) error {
+	return s.Serialise(
+		c.clk, c.clkExtra, c.disableBreak, c.inInt, c.interrupts,
+		c.Rg, c.curr.opr, c.curr.pgX,
+	)
+}
+func (c *Cpu) DeSerialise(s common.Serialiser) error {
+	return s.DeSerialise(
+		&c.clk, &c.clkExtra, &c.disableBreak, &c.inInt, &c.interrupts,
+		&c.Rg, &c.curr.opr, &c.curr.pgX,
+	)
+}
+
 func (c *Cpu) Stats() {
 	nValid := 0
 	nTotal := 0

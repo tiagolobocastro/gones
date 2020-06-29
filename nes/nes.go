@@ -6,6 +6,8 @@ import (
 	"log"
 	"strings"
 	"time"
+
+	"github.com/tiagolobocastro/gones/nes/common"
 )
 
 func NewNES(options ...func(*nes) error) *nes {
@@ -26,7 +28,15 @@ func (n *nes) Stop() {
 }
 
 func (n *nes) Reset() {
-	n.resetRq = true
+	n.opRequests = ResetRequest
+}
+
+func (n *nes) Save() {
+	n.opRequests = SaveRequest
+}
+
+func (n *nes) Load() {
+	n.opRequests = LoadRequest
 }
 
 func (n *nes) Run() {
@@ -79,6 +89,49 @@ func (n *nes) init() {
 	n.cpu.Reset()
 }
 
+func (n *nes) reset() {
+	n.ppu.Reset()
+	n.dma.reset()
+	n.cpu.Reset()
+	n.apu.reset()
+	n.ctrl.Reset()
+	n.cart.Reset()
+
+	n.opRequests &= ^(1 << ResetRequest)
+}
+
+func (n *nes) save() {
+	err := n.Serialise(common.NewSerialiser(n.cart.GetStateSaveFile()))
+	if err != nil {
+		log.Printf("Failed to Save State: %v", err)
+	}
+	n.opRequests &= ^(1 << SaveRequest)
+}
+
+func (n *nes) load() {
+	// we need to reset the nest because otherwise the gob encoder
+	// does a gob out: https://github.com/golang/go/issues/21929
+	n.reset()
+	if err := n.DeSerialise(common.NewSerialiser(n.cart.GetStateSaveFile())); err != nil {
+		log.Printf("Failed to Load State: %v", err)
+	}
+	n.opRequests &= ^(1 << LoadRequest)
+}
+
+func (n *nes) Serialise(s common.Serialiser) error {
+	return s.Serialise(
+		&n.cpu, &n.ram, &n.apu, &n.dma, &n.ppu, &n.cart, &n.screen, &n.ctrl,
+		n.opRequests, n.freeRun, n.audioLib, n.audioLog, n.spriteLimit,
+	)
+}
+
+func (n *nes) DeSerialise(s common.Serialiser) error {
+	return s.DeSerialise(
+		&n.cpu, &n.ram, &n.apu, &n.dma, &n.ppu, &n.cart, &n.screen, &n.ctrl,
+		&n.opRequests, &n.freeRun, &n.audioLib, &n.audioLog, &n.spriteLimit,
+	)
+}
+
 func (n *nes) stats() {
 	n.cpu.Stats()
 }
@@ -106,9 +159,16 @@ func (n *nes) Step(seconds float64) {
 
 		runCycles -= ticks
 	}
+}
 
-	if n.resetRq {
+func (n *nes) processOpRequest() {
+	switch {
+	case n.opRequests&ResetRequest != 0:
 		n.reset()
+	case n.opRequests&SaveRequest != 0:
+		n.save()
+	case n.opRequests&LoadRequest != 0:
+		n.load()
 	}
 }
 
@@ -146,16 +206,6 @@ func (n *nes) runFree() {
 			n.Step(time.Second.Seconds())
 		}
 	}
-}
-
-func (n *nes) reset() {
-	// probably need to stall them first
-	n.ppu.Reset()
-	n.dma.reset()
-	n.cpu.Reset()
-	n.apu.reset()
-
-	n.resetRq = false
 }
 
 // loads hex dumps from: https://skilldrick.github.io/easy6502/, eg:

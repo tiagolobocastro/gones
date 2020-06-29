@@ -1,5 +1,9 @@
 package waves
 
+import (
+	"github.com/tiagolobocastro/gones/nes/common"
+)
+
 type Noise struct {
 	constVolume bool  // these two are         1
 	volume      uint8 // in case of const volume
@@ -13,6 +17,19 @@ type Noise struct {
 
 	clock   uint64
 	enabled bool
+}
+
+func (n *Noise) Serialise(s common.Serialiser) error {
+	return s.Serialise(
+		&n.timer, &n.duration, &n.envelope,
+		n.constVolume, n.volume, n.modeBit, n.shiftRegister, n.clock, n.enabled,
+	)
+}
+func (n *Noise) DeSerialise(s common.Serialiser) error {
+	return s.DeSerialise(
+		&n.timer, &n.duration, &n.envelope,
+		&n.constVolume, &n.volume, &n.modeBit, &n.shiftRegister, &n.clock, &n.enabled,
+	)
 }
 
 func (n *Noise) Init() {

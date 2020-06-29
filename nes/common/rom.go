@@ -58,3 +58,11 @@ func (r *Rom) Init(size int, writable bool) {
 func (r *Rom) LoadFromFile(file *os.File) (int, error) {
 	return io.ReadFull(file, r.rom)
 }
+
+// do we even need to since this is rom...?
+func (r *Rom) Serialise(s Serialiser) error {
+	return s.Serialise(r.rom)
+}
+func (r *Rom) DeSerialise(s Serialiser) error {
+	return s.DeSerialise(&r.rom)
+}

@@ -29,6 +29,21 @@ type Dmc struct {
 	enabled bool
 }
 
+func (d *Dmc) Serialise(s common.Serialiser) error {
+	return s.Serialise(
+		d.irqEnable, d.loopFlag, d.rateTicks, d.outputLevel, d.sampleAddrRld,
+		d.sampleLenRld, d.sampleBuffer, d.sampleReady, d.sampleAddr, d.sampleLen,
+		d.shiftRegister, d.bitsRemaining, d.silenceFlag, d.clock, d.enabled,
+	)
+}
+func (d *Dmc) DeSerialise(s common.Serialiser) error {
+	return s.DeSerialise(
+		&d.irqEnable, &d.loopFlag, &d.rateTicks, &d.outputLevel, &d.sampleAddrRld,
+		&d.sampleLenRld, &d.sampleBuffer, &d.sampleReady, &d.sampleAddr, &d.sampleLen,
+		&d.shiftRegister, &d.bitsRemaining, &d.silenceFlag, &d.clock, &d.enabled,
+	)
+}
+
 // https://wiki.nesdev.com/w/index.php/APU_DMC
 // The rate determines for how many CPU cycles happen between changes in the
 // output level during automatic delta-encoded sample playback. For example,

@@ -1,10 +1,10 @@
 package ppu
 
 import (
-	"github.com/tiagolobocastro/gones/nes/cpu"
 	"image/color"
 
 	"github.com/tiagolobocastro/gones/nes/common"
+	"github.com/tiagolobocastro/gones/nes/cpu"
 )
 
 // http://wiki.nesdev.com/w/index.php/PPU_OAM
@@ -24,6 +24,13 @@ type OamSprite struct {
 	// data
 	msbIndex uint8
 	lsbIndex uint8
+}
+
+func (o OamSprite) Serialise(s common.Serialiser) error {
+	return s.Serialise(o.yPos, o.tIndex, o.attributes, o.xPos, o.id, o.msbIndex, o.lsbIndex)
+}
+func (o OamSprite) DeSerialise(s common.Serialiser) error {
+	return s.DeSerialise(&o.yPos, &o.tIndex, &o.attributes, &o.xPos, &o.id, &o.msbIndex, &o.lsbIndex)
 }
 
 type Ppu struct {

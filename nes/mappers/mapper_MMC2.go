@@ -216,3 +216,16 @@ func (m *MapperMMC2) Write8(addr uint16, val uint8) {
 		panic(fmt.Sprintf("write not implemented for 0x%04x!", addr))
 	}
 }
+
+func (m *MapperMMC2) Serialise(s common.Serialiser) error {
+	return s.Serialise(
+		m.chrBankD0, m.chrBankE0, m.chrBankD1, m.chrBankE1, m.prgBank, m.mirror,
+		m.prgBanks, m.chrBanks, m.chrBanks, m.latch,
+	)
+}
+func (m *MapperMMC2) DeSerialise(s common.Serialiser) error {
+	return s.DeSerialise(
+		&m.chrBankD0, &m.chrBankE0, &m.chrBankD1, &m.chrBankE1, &m.prgBank, &m.mirror,
+		&m.prgBanks, &m.chrBanks, &m.chrBanks, &m.latch,
+	)
+}

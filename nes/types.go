@@ -17,6 +17,14 @@ const (
 	screenYHeight    = frameYHeight * screenFrameRatio
 )
 
+type NesOpRequest int
+
+const (
+	ResetRequest NesOpRequest = iota
+	SaveRequest
+	LoadRequest
+)
+
 type nes struct {
 	bus common.Bus
 
@@ -30,7 +38,7 @@ type nes struct {
 
 	screen screen
 
-	resetRq bool
+	opRequests NesOpRequest
 
 	// Options
 	verbose     bool
