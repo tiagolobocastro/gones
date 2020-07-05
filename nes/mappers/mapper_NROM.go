@@ -10,6 +10,8 @@ type MapperNROM struct {
 	cart *Cartridge
 }
 
+func (m *MapperNROM) Step() {}
+
 func (m *MapperNROM) Init() {}
 
 //CPU $6000-$7FFF: Family Basic only: PRG RAM, mirrored as necessary to fill entire 8 KiB window, write protectable with an external switch

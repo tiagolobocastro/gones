@@ -28,15 +28,15 @@ func (n *nes) Stop() {
 }
 
 func (n *nes) Reset() {
-	n.opRequests = ResetRequest
+	n.opRequests |= 1 << ResetRequest
 }
 
 func (n *nes) Save() {
-	n.opRequests = SaveRequest
+	n.opRequests |= 1 << SaveRequest
 }
 
 func (n *nes) Load() {
-	n.opRequests = LoadRequest
+	n.opRequests |= 1 << LoadRequest
 }
 
 func (n *nes) Run() {
@@ -159,15 +159,17 @@ func (n *nes) Step(seconds float64) {
 
 		runCycles -= ticks
 	}
+
+	n.processOpRequest()
 }
 
 func (n *nes) processOpRequest() {
 	switch {
-	case n.opRequests&ResetRequest != 0:
+	case n.opRequests&(1<<ResetRequest) != 0:
 		n.reset()
-	case n.opRequests&SaveRequest != 0:
+	case n.opRequests&(1<<SaveRequest) != 0:
 		n.save()
-	case n.opRequests&LoadRequest != 0:
+	case n.opRequests&(1<<LoadRequest) != 0:
 		n.load()
 	}
 }

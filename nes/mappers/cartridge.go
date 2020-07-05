@@ -21,6 +21,7 @@ const (
 type Mapper interface {
 	common.BusInt
 	Init()
+	Step()
 }
 
 var CartEndianness = binary.LittleEndian
@@ -106,6 +107,10 @@ func (c *Cartridge) Init(cartPath string) error {
 	return nil
 }
 
+func (c *Cartridge) Step() {
+	c.Mapper.Step()
+}
+
 func (c *Cartridge) Stop() {
 	if c.config.battery {
 		if err := c.prgRam.SaveToFile(c.getRamSaveFile()); err != nil {
@@ -133,6 +138,8 @@ func (c *Cartridge) newCartMapper(mapper byte) Mapper {
 		return &MapperMMC1{cart: c}
 	case 2, 9:
 		return &MapperMMC2{cart: c}
+	case 4:
+		return &MapperMMC3{cart: c}
 	default:
 		panic(fmt.Sprintf("mapper %v not supported!", mapper))
 	}

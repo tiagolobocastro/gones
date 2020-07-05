@@ -26,6 +26,8 @@ type MapperMMC1 struct {
 	chrBanks [2]uint16
 }
 
+func (m *MapperMMC1) Step() {}
+
 func (m *MapperMMC1) Init() {
 	m.writeInner(0x8000, 0x1F)
 }

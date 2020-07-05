@@ -22,6 +22,8 @@ type MapperMMC2 struct {
 	latch [2]uint8
 }
 
+func (m *MapperMMC2) Step() {}
+
 func (m *MapperMMC2) Init() {
 	m.latch[0] = 0xFD
 	m.latch[1] = 0xFD
