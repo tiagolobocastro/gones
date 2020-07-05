@@ -37,8 +37,8 @@ type Ppu struct {
 	common.BusInt
 
 	clock    int
-	cycle    int
-	scanLine int
+	Cycle    int
+	ScanLine int
 	frames   int
 	verbose  bool
 
@@ -102,8 +102,8 @@ func (p *Ppu) Init(busInt common.BusInt, interrupts common.IiInterrupt, verbose 
 	p.BusInt = busInt
 	p.interrupts = interrupts
 	p.clock = 0
-	p.cycle = 0
-	p.scanLine = -1
+	p.Cycle = 0
+	p.ScanLine = -1
 	p.frameBuffer = framebuffer
 	p.buffered = true
 	p.maxSprites = uint8(len(p.pOAM))
@@ -172,7 +172,7 @@ func (p *Ppu) getNameTable() uint16 {
 		nta = [2]uint16{0x2400, 0x2000}
 	}
 
-	if (p.cycle + int(p.finalScroll)) > 255 {
+	if (p.Cycle + int(p.finalScroll)) > 255 {
 		return nta[1]
 	} else {
 		return nta[0]
@@ -187,7 +187,7 @@ func (p *Ppu) getAttributeNameTable() uint16 {
 		nta = [2]uint16{0x27C0, 0x23C0}
 	}
 
-	if (p.cycle + int(p.finalScroll)) > 255 {
+	if (p.Cycle + int(p.finalScroll)) > 255 {
 		return nta[1]
 	} else {
 		return nta[0]
@@ -196,33 +196,33 @@ func (p *Ppu) getAttributeNameTable() uint16 {
 
 // start easy with a dummy imp
 func (p *Ppu) fetchNameTableEntry() {
-	x := (p.cycle + int(p.finalScroll)) % 256
-	addr := p.getNameTable() + uint16(p.scanLine/8)*32 + uint16(x/8)
+	x := (p.Cycle + int(p.finalScroll)) % 256
+	addr := p.getNameTable() + uint16(p.ScanLine/8)*32 + uint16(x/8)
 	p.nametableEntry = p.BusInt.Read8(addr)
 }
 
 func (p *Ppu) fetchAttributeTableEntry() {
-	x := (p.cycle + int(p.finalScroll)) % 256
-	addr := p.getAttributeNameTable() + uint16(p.scanLine/32)*8 + uint16(x/32)
+	x := (p.Cycle + int(p.finalScroll)) % 256
+	addr := p.getAttributeNameTable() + uint16(p.ScanLine/32)*8 + uint16(x/32)
 	p.attributeEntry = p.BusInt.Read8(addr)
 }
 
 func (p *Ppu) fetchLowOrderByte() {
 	table := p.getBackgroundTable()
-	addr := table + uint16(p.nametableEntry)*16 + uint16(p.scanLine%8)
+	addr := table + uint16(p.nametableEntry)*16 + uint16(p.ScanLine%8)
 	p.lowOrderByte = p.BusInt.Read8(addr)
 }
 
 func (p *Ppu) fetchHighOrderByte() {
 	table := p.getBackgroundTable()
-	addr := table + uint16(p.nametableEntry)*16 + uint16(p.scanLine%8)
+	addr := table + uint16(p.nametableEntry)*16 + uint16(p.ScanLine%8)
 	p.highOrderByte = p.BusInt.Read8(addr + 8)
 }
 
 func (p *Ppu) execOldPpu() {
 
-	if p.scanLine < 240 {
-		switch p.cycle {
+	if p.ScanLine < 240 {
+		switch p.Cycle {
 		// the ppu "works" these every cycle and it might more efficient for us to do the same
 		// but now for simplicity let's bundle each task
 		case 1:
@@ -235,8 +235,8 @@ func (p *Ppu) execOldPpu() {
 	}
 
 	// setup values required for the draw decision
-	x := uint8(p.cycle)
-	y := uint8(p.scanLine)
+	x := uint8(p.Cycle)
+	y := uint8(p.ScanLine)
 	p.bgIndex = 0
 	p.bgPalette = 0
 	p.fgIndex = 0
@@ -244,18 +244,18 @@ func (p *Ppu) execOldPpu() {
 	p.fgPriority = false
 
 	// http://wiki.nesdev.com/w/images/d/d1/Ntsc_timing.png
-	visibleFrame := p.scanLine >= 0 && p.scanLine < 240
-	preRenderLn := p.scanLine == -1
+	visibleFrame := p.ScanLine >= 0 && p.ScanLine < 240
+	preRenderLn := p.ScanLine == -1
 	renderFrame := visibleFrame || preRenderLn
 
 	// cycle 0 is skipped for BG+odd => background and odd sprite frames?
 	// cycle 337-340 are unused
-	visibleCycle := p.cycle >= 0 && p.cycle <= 255
+	visibleCycle := p.Cycle >= 0 && p.Cycle <= 255
 
 	// background
 	if renderFrame && visibleCycle && p.showBackground() {
 
-		if p.scanLine > 0 && p.scanLine%32 == 0 {
+		if p.ScanLine > 0 && p.ScanLine%32 == 0 {
 			p.nameTable = p.regs[PPUCTRL].Val & 3
 		}
 
@@ -264,7 +264,7 @@ func (p *Ppu) execOldPpu() {
 		p.fetchLowOrderByte()
 		p.fetchHighOrderByte()
 
-		xx := (p.cycle + int(p.finalScroll)) % 256
+		xx := (p.Cycle + int(p.finalScroll)) % 256
 		bit := uint8(8 - xx%8 - 1)
 
 		b0 := (p.lowOrderByte >> bit) & 1
@@ -328,23 +328,23 @@ func (p *Ppu) execOldPpu() {
 		}
 	}
 
-	p.cycle += 1
+	p.Cycle += 1
 
-	if p.cycle == 257 {
+	if p.Cycle == 257 {
 		p.finalScroll = p.xScroll
 	}
-	if p.cycle > 340 {
+	if p.Cycle > 340 {
 
-		p.scanLine += 1
-		p.cycle = 0
+		p.ScanLine += 1
+		p.Cycle = 0
 
-		if p.scanLine > 260 {
+		if p.ScanLine > 260 {
 			p.clearOAM()
-			p.scanLine = -1
+			p.ScanLine = -1
 			p.stopVBlank()
-		} else if p.scanLine == 241 {
+		} else if p.ScanLine == 241 {
 			p.startVBlank()
-		} else if p.scanLine == 242 {
+		} else if p.ScanLine == 242 {
 			p.nameTable = p.regs[PPUCTRL].Val & 0x3
 		}
 	}
@@ -359,7 +359,7 @@ func (p *Ppu) drawPixel(x uint8, y uint8, c color.RGBA) {
 }
 
 func (p *Ppu) loadSprites() {
-	scanLine := uint8(p.scanLine)
+	scanLine := uint8(p.ScanLine)
 	_, spriteSizeY := p.getSpriteSize()
 	patternAddr := p.getSpritePattern()
 
@@ -414,7 +414,7 @@ func reverseByte(b uint8) uint8 {
 // sprite rendering, no sprites will be rendered on the first scanline, and this is why there is a 1 line offset
 // on a sprite's Y coordinate. (and that's why we don't need to do "scanline+1")
 func (p *Ppu) evalSprites() {
-	scanLine := uint8(p.scanLine)
+	scanLine := uint8(p.ScanLine)
 	spriteCount := uint8(0)
 
 	_, yLen := p.getSpriteSize()

@@ -3,12 +3,14 @@ package mappers
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/tiagolobocastro/gones/lib/ppu"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/tiagolobocastro/gones/lib/common"
+	"github.com/tiagolobocastro/gones/lib/cpu"
 )
 
 const (
@@ -17,6 +19,11 @@ const (
 	mapperUnROM
 	mapperMMC2
 )
+
+type NesView interface {
+	PPU() *ppu.Ppu
+	CPU() *cpu.Cpu
+}
 
 type Mapper interface {
 	common.BusInt
@@ -36,7 +43,8 @@ func (c *Cartridge) defaultInit() error {
 	return nil
 }
 
-func (c *Cartridge) Init(cartPath string) error {
+func (c *Cartridge) Init(cartPath string, nes NesView) error {
+	c.nes = nes
 	c.cart = cartPath
 
 	c.prgRom = new(common.Rom)
@@ -122,7 +130,7 @@ func (c *Cartridge) Stop() {
 }
 
 func (c *Cartridge) Reset() {
-	c.Init(c.cart)
+	c.Init(c.cart, c.nes)
 }
 
 func (c *Cartridge) Serialise(s common.Serialiser) error {
@@ -210,6 +218,7 @@ func (c *Cartridge) GetStateSaveFile() *os.File {
 
 // BusInt
 type Cartridge struct {
+	nes     NesView
 	config  iNESConfig
 	version iNESFormat
 	cart    string

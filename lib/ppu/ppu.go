@@ -29,8 +29,8 @@ func (p *Ppu) getBgPixel() uint8 {
 func (p *Ppu) exec() {
 
 	// setup values required for the draw decision
-	x := uint8(p.cycle) - 1
-	y := uint8(p.scanLine)
+	x := uint8(p.Cycle) - 1
+	y := uint8(p.ScanLine)
 	p.bgIndex = 0
 	p.bgPalette = 0
 	p.fgIndex = 0
@@ -38,18 +38,18 @@ func (p *Ppu) exec() {
 	p.fgPriority = false
 
 	// http://wiki.nesdev.com/w/images/d/d1/Ntsc_timing.png
-	visibleFrame := p.scanLine >= 0 && p.scanLine < 240
-	preRenderLn := p.scanLine == -1
-	vBlankLn := p.scanLine == 241
+	visibleFrame := p.ScanLine >= 0 && p.ScanLine < 240
+	preRenderLn := p.ScanLine == -1
+	vBlankLn := p.ScanLine == 241
 	renderFrame := visibleFrame || preRenderLn
-	copyVertCycle := p.cycle >= 280 && p.cycle <= 304
-	copyHoriCycle := p.cycle == 257
-	incVert := p.cycle == 256
+	copyVertCycle := p.Cycle >= 280 && p.Cycle <= 304
+	copyHoriCycle := p.Cycle == 257
+	incVert := p.Cycle == 256
 
 	// cycle 0 is skipped for BG+odd => background and odd sprite frames?
 	// cycle 337-340 are unused
-	visibleCycle := p.cycle >= 1 && p.cycle <= 256
-	bgTileFetch := visibleCycle || (p.cycle >= 321 && p.cycle <= 336)
+	visibleCycle := p.Cycle >= 1 && p.Cycle <= 256
+	bgTileFetch := visibleCycle || (p.Cycle >= 321 && p.Cycle <= 336)
 
 	if p.showBackground() || p.showSprites() {
 		if renderFrame && bgTileFetch {
@@ -63,7 +63,7 @@ func (p *Ppu) exec() {
 			}
 
 			p.updateShifter()
-			switch p.cycle % 8 {
+			switch p.Cycle % 8 {
 			case 1:
 				p.nametableEntry = p.BusInt.Read8(0x2000 | (p.vRAM.Val & 0x0FFF))
 			case 3:
@@ -135,7 +135,7 @@ func (p *Ppu) exec() {
 	}
 
 	if visibleFrame && p.showSprites() {
-		switch p.cycle {
+		switch p.Cycle {
 		// the ppu "works" these every cycle and it might more efficient for us to do the same
 		// but now for simplicity let's bundle each task
 		case 1:
@@ -196,17 +196,17 @@ func (p *Ppu) exec() {
 		}
 	}
 
-	p.cycle += 1
-	if p.cycle > 340 {
+	p.Cycle += 1
+	if p.Cycle > 340 {
 
-		p.scanLine += 1
-		p.cycle = 0
+		p.ScanLine += 1
+		p.Cycle = 0
 
-		if p.scanLine > 260 {
+		if p.ScanLine > 260 {
 			p.clearOAM()
-			p.scanLine = -1
+			p.ScanLine = -1
 		}
-	} else if p.cycle == 1 {
+	} else if p.Cycle == 1 {
 		if vBlankLn {
 			p.startVBlank()
 		} else if preRenderLn {
@@ -230,7 +230,7 @@ func (p *Ppu) exec() {
 func (p *Ppu) Serialise(s common.Serialiser) error {
 	return s.Serialise(
 		&p.rOAM, &p.Palette, p.pOAM, p.sOAM,
-		p.clock, p.cycle, p.scanLine, p.frames, p.regs, p.vRAM, p.tRAM,
+		p.clock, p.Cycle, p.ScanLine, p.frames, p.regs, p.vRAM, p.tRAM,
 		p.xFine, p.wToggle, p.nametableEntry, p.attributeEntry, p.lowOrderByte,
 		p.highOrderByte, p.tileData, p.rowShifter, p.nameTable, p.xScroll, p.vRAMBuffer,
 		p.bgIndex, p.bgPalette, p.fgIndex, p.fgPalette, p.fgPriority, p.buffered,
@@ -240,7 +240,7 @@ func (p *Ppu) Serialise(s common.Serialiser) error {
 func (p *Ppu) DeSerialise(s common.Serialiser) error {
 	return s.DeSerialise(
 		&p.rOAM, &p.Palette, p.pOAM, p.sOAM,
-		&p.clock, &p.cycle, &p.scanLine, &p.frames, &p.regs, &p.vRAM, &p.tRAM,
+		&p.clock, &p.Cycle, &p.ScanLine, &p.frames, &p.regs, &p.vRAM, &p.tRAM,
 		&p.xFine, &p.wToggle, &p.nametableEntry, &p.attributeEntry, &p.lowOrderByte,
 		&p.highOrderByte, &p.tileData, &p.rowShifter, &p.nameTable, &p.xScroll, &p.vRAMBuffer,
 		&p.bgIndex, &p.bgPalette, &p.fgIndex, &p.fgPalette, &p.fgPriority, &p.buffered,

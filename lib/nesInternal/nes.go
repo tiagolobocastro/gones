@@ -79,10 +79,17 @@ func (n *nes) Run() {
 	}
 }
 
+func (n *nes) PPU() *ppu.Ppu {
+	return &n.ppu
+}
+func (n *nes) CPU() *cpu.Cpu {
+	return &n.cpu
+}
+
 func (n *nes) init() {
 	n.bus.Init()
 
-	if err := n.cart.Init(n.cartPath); err != nil {
+	if err := n.cart.Init(n.cartPath, n); err != nil {
 		log.Panicf("Failed to initialise the cartridge, err=%v", err)
 	}
 

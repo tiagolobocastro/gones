@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/tiagolobocastro/gones/lib/common"
-	"github.com/tiagolobocastro/gones/lib/mappers"
 )
 
 type ppuPalette struct {
@@ -55,7 +54,7 @@ func (p *ppuPalette) init() {
 	}
 }
 
-func (p *ppuPalette) setPalette(source string) error {
+func (p *ppuPalette) setPalette(source string, order binary.ByteOrder) error {
 
 	file, err := os.Open(source)
 	if err != nil {
@@ -69,7 +68,7 @@ func (p *ppuPalette) setPalette(source string) error {
 	}()
 
 	loadPalette := [64][3]uint8{}
-	if err := binary.Read(file, mappers.CartEndianness, &loadPalette); err != nil {
+	if err := binary.Read(file, order, &loadPalette); err != nil {
 		return err
 	}
 

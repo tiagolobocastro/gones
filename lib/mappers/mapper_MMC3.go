@@ -22,7 +22,9 @@ type MapperMMC3 struct {
 }
 
 func (m *MapperMMC3) Tick() {
+	if m.cart.nes.PPU().ScanLine > 100 {
 
+	}
 }
 
 func (m *MapperMMC3) Init() {
