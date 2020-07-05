@@ -1,4 +1,4 @@
-package gones
+package nesInternal
 
 import (
 	"fmt"
@@ -15,24 +15,18 @@ import (
 	"github.com/tiagolobocastro/gones/lib/speakers"
 )
 
-type GoNes interface {
-	Run()
-	Stop()
-	Reset()
-	Save()
-	Load()
+type GoNes struct {
+	nes *nes
 }
 
-func NewNES(options ...func(*nes) error) GoNes {
-	nes := &nes{}
-	nes.audioLib = speakers.Nil
-
-	if err := nes.setOptions(options...); err != nil {
-		panic(err)
-	}
-
-	nes.init()
-	return nes
+func NewNesInternal() *GoNes {
+	return &GoNes{&nes{audioLib: speakers.Nil}}
+}
+func (g *GoNes) Init() {
+	g.nes.init()
+}
+func (g *GoNes) Nes() *nes {
+	return g.nes
 }
 
 func (n *nes) Stop() {

@@ -1,23 +1,21 @@
-package gones
+package nesInternal
 
 import (
 	"github.com/tiagolobocastro/gones/lib/cpu"
-	"github.com/tiagolobocastro/gones/lib/speakers"
 	"strings"
 	"testing"
 )
 
 // the test code needs to access the internal type
-func newNES(options ...func(*nes) error) *nes {
-	nes := &nes{}
-	nes.audioLib = speakers.Nil
+func newNES(options ...func(n *GoNes) error) *nes {
+	nes := NewNesInternal()
 
-	if err := nes.setOptions(options...); err != nil {
+	if err := nes.SetOptions(options...); err != nil {
 		panic(err)
 	}
 
-	nes.init()
-	return nes
+	nes.Init()
+	return nes.nes
 }
 
 func Test_newNES(t *testing.T) {
