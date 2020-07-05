@@ -1,14 +1,20 @@
-package gones
+package apu
 
 import (
 	"fmt"
 	"log"
 	"time"
 
-	"github.com/tiagolobocastro/gones/nes/common"
-	"github.com/tiagolobocastro/gones/nes/cpu"
-	"github.com/tiagolobocastro/gones/nes/waves"
+	"github.com/tiagolobocastro/gones/lib/apu/waves"
+	"github.com/tiagolobocastro/gones/lib/common"
+	"github.com/tiagolobocastro/gones/lib/cpu"
+	"github.com/tiagolobocastro/gones/lib/speakers"
 )
+
+// this should be passed through via Init
+const NesBaseFrequency = 1789773 // NTSC
+const NesApuFrameCycles = 7457
+const NesApuVolumeGain = 0.012
 
 // Status Registers Enable bits
 // ---D NT21 Enable DMC (D), noise (N), triangle (T), and pulse channels (2/1)
@@ -81,8 +87,8 @@ type Apu struct {
 
 	status common.Register
 
-	audioLib AudioLib
-	speaker  AudioSpeaker
+	audioLib speakers.AudioLib
+	speaker  speakers.AudioSpeaker
 
 	sampleTicks       float64
 	sampleTargetTicks float64
@@ -105,7 +111,7 @@ func (a *Apu) DeSerialise(s common.Serialiser) error {
 	)
 }
 
-func (a *Apu) reset() {
+func (a *Apu) Reset() {
 	if !a.enabled {
 		return
 	}
@@ -132,7 +138,7 @@ func (a *Apu) reset() {
 
 	a.status.Initx("status", 0, a.writeStatusReg, a.readStatusReg)
 }
-func (a *Apu) init(busInt common.BusInt, interrupts common.IiInterrupt, verbose bool, logAudio bool, audioLib AudioLib) {
+func (a *Apu) Init(busInt common.BusInt, interrupts common.IiInterrupt, verbose bool, logAudio bool, audioLib speakers.AudioLib) {
 	a.BusInt = busInt
 	a.interrupts = interrupts
 
@@ -140,15 +146,15 @@ func (a *Apu) init(busInt common.BusInt, interrupts common.IiInterrupt, verbose 
 	a.logAudio = logAudio
 	a.audioLib = audioLib
 	a.enabled = true
-	a.speaker = NewSpeaker(a.audioLib)
+	a.speaker = speakers.NewSpeaker(a.audioLib)
 
-	a.reset()
+	a.Reset()
 }
 func (a *Apu) Play() {
 	a.speaker.Play()
 }
 func (a *Apu) Stop() {
-	a.reset()
+	a.Reset()
 	a.enabled = false
 	a.speaker.Stop()
 }
@@ -181,7 +187,7 @@ func (a *Apu) logSampling() {
 	}
 }
 
-func (a *Apu) ticks(nTicks int) {
+func (a *Apu) Ticks(nTicks int) {
 	if !a.enabled {
 		return
 	}
@@ -227,7 +233,7 @@ func (a *Apu) sample() {
 	}
 }
 
-func (a *Apu) audioBufferReady() bool {
+func (a *Apu) AudioBufferReady() bool {
 	return a.speaker.BufferReady()
 }
 

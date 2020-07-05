@@ -10,7 +10,7 @@ import (
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/pixelgl"
 
-	"github.com/tiagolobocastro/gones/nes/common"
+	"github.com/tiagolobocastro/gones/lib/common"
 )
 
 type screen struct {
@@ -100,38 +100,38 @@ var buttons = [8]struct {
 	id  uint8
 	key pixelgl.Button
 }{
-	{bitA, pixelgl.KeyS},
-	{bitB, pixelgl.KeyA},
-	{bitSelect, pixelgl.KeyLeftShift},
-	{bitStart, pixelgl.KeyEnter},
-	{bitUp, pixelgl.KeyUp},
-	{bitDown, pixelgl.KeyDown},
-	{bitLeft, pixelgl.KeyLeft},
-	{bitRight, pixelgl.KeyRight},
+	{common.BitA, pixelgl.KeyS},
+	{common.BitB, pixelgl.KeyA},
+	{common.BitSelect, pixelgl.KeyLeftShift},
+	{common.BitStart, pixelgl.KeyEnter},
+	{common.BitUp, pixelgl.KeyUp},
+	{common.BitDown, pixelgl.KeyDown},
+	{common.BitLeft, pixelgl.KeyLeft},
+	{common.BitRight, pixelgl.KeyRight},
 }
 
 func (s *screen) updateControllers() {
 	onePressed := false
 	for _, button := range buttons {
 		pressed := s.window.Pressed(button.key)
-		s.nes.ctrl.poke(0, button.id, pressed)
+		s.nes.Poke(0, button.id, pressed)
 		if pressed {
 			onePressed = true
 		}
 	}
 
 	if s.window.Pressed(pixelgl.KeyLeftControl) && s.window.JustPressed(pixelgl.KeyR) {
-		s.nes.Reset()
+		s.nes.Request(ResetRequest)
 		onePressed = true
 	}
 	if s.window.JustPressed(pixelgl.KeyLeftControl) && s.window.Pressed(pixelgl.KeyS) ||
 		s.window.JustPressed(pixelgl.KeyS) && s.window.Pressed(pixelgl.KeyLeftControl) {
-		s.nes.Save()
+		s.nes.Request(SaveRequest)
 		onePressed = true
 	}
 	if s.window.JustPressed(pixelgl.KeyLeftControl) && s.window.Pressed(pixelgl.KeyL) ||
 		s.window.JustPressed(pixelgl.KeyL) && s.window.Pressed(pixelgl.KeyLeftControl) {
-		s.nes.Load()
+		s.nes.Request(LoadRequest)
 		onePressed = true
 	}
 

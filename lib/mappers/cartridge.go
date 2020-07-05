@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/tiagolobocastro/gones/nes/common"
+	"github.com/tiagolobocastro/gones/lib/common"
 )
 
 const (
@@ -21,7 +21,7 @@ const (
 type Mapper interface {
 	common.BusInt
 	Init()
-	Step()
+	Tick()
 }
 
 var CartEndianness = binary.LittleEndian
@@ -107,8 +107,10 @@ func (c *Cartridge) Init(cartPath string) error {
 	return nil
 }
 
-func (c *Cartridge) Step() {
-	c.Mapper.Step()
+func (c *Cartridge) Ticks(nTicks int) {
+	for i := 0; i < nTicks; i++ {
+		c.Mapper.Tick()
+	}
 }
 
 func (c *Cartridge) Stop() {

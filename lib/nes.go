@@ -7,12 +7,25 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tiagolobocastro/gones/nes/common"
+	"github.com/tiagolobocastro/gones/lib/apu"
+	"github.com/tiagolobocastro/gones/lib/common"
+	"github.com/tiagolobocastro/gones/lib/cpu"
+	"github.com/tiagolobocastro/gones/lib/mappers"
+	"github.com/tiagolobocastro/gones/lib/ppu"
+	"github.com/tiagolobocastro/gones/lib/speakers"
 )
 
-func NewNES(options ...func(*nes) error) *nes {
+type GoNes interface {
+	Run()
+	Stop()
+	Reset()
+	Save()
+	Load()
+}
+
+func NewNES(options ...func(*nes) error) GoNes {
 	nes := &nes{}
-	nes.audioLib = Nil
+	nes.audioLib = speakers.Nil
 
 	if err := nes.setOptions(options...); err != nil {
 		panic(err)
@@ -27,6 +40,10 @@ func (n *nes) Stop() {
 	n.apu.Stop()
 }
 
+func (n *nes) Request(request NesOpRequest) {
+	n.opRequests |= 1 << request
+}
+
 func (n *nes) Reset() {
 	n.opRequests |= 1 << ResetRequest
 }
@@ -37,6 +54,10 @@ func (n *nes) Save() {
 
 func (n *nes) Load() {
 	n.opRequests |= 1 << LoadRequest
+}
+
+func (n *nes) Poke(controllerId uint8, button uint8, pressed bool) {
+	n.ctrl.Poke(controllerId, button, pressed)
 }
 
 func (n *nes) Run() {
@@ -73,13 +94,13 @@ func (n *nes) init() {
 
 	n.ram.Init(0x800)
 
-	n.ctrl.init()
+	n.ctrl.Init()
 	n.screen.init(n)
 
 	n.cpu.Init(n.bus.GetBusInt(MapCPUId), n.verbose)
 	n.ppu.Init(n.bus.GetBusInt(MapPPUId), &n.cpu, n.verbose, &n.screen.framebuffer, n.spriteLimit)
-	n.dma.init(n.bus.GetBusInt(MapDMAId))
-	n.apu.init(n.bus.GetBusInt(MapAPUId), &n.cpu, n.verbose, n.audioLog, n.audioLib)
+	n.dma.Init(n.bus.GetBusInt(MapDMAId))
+	n.apu.Init(n.bus.GetBusInt(MapAPUId), &n.cpu, n.verbose, n.audioLog, n.audioLib)
 
 	n.bus.Connect(MapCPUId, &cpuMapper{n})
 	n.bus.Connect(MapPPUId, &ppuMapper{n})
@@ -91,9 +112,9 @@ func (n *nes) init() {
 
 func (n *nes) reset() {
 	n.ppu.Reset()
-	n.dma.reset()
+	n.dma.Reset()
 	n.cpu.Reset()
-	n.apu.reset()
+	n.apu.Reset()
 	n.ctrl.Reset()
 	n.cart.Reset()
 
@@ -144,18 +165,20 @@ func (n *nes) Step(seconds float64) {
 	for runCycles > 0 {
 
 		ticks := 1
-		if !n.dma.active() {
+		if !n.dma.Active() {
 			// cpu stalled whilst dma is active
 			ticks = n.cpu.Tick()
 		}
 
 		// 3 ppu ticks per 1 cpu
 		n.ppu.Ticks(3 * ticks)
-		n.dma.ticks(ticks)
+		n.cart.Ticks(3 * ticks)
+
+		n.dma.Ticks(ticks)
 
 		// since we are more sensitive to sound
 		// so we might have to replace the cpu as the "tick master"
-		n.apu.ticks(ticks)
+		n.apu.Ticks(ticks)
 
 		runCycles -= ticks
 	}
@@ -177,7 +200,7 @@ func (n *nes) processOpRequest() {
 func (n *nes) Test() {
 	for {
 		ticks := 1
-		if !n.dma.active() {
+		if !n.dma.Active() {
 			// cpu stalled whilst dma is active
 			ticks = n.cpu.Tick()
 		}
@@ -188,12 +211,12 @@ func (n *nes) Test() {
 
 		// 3 ppu ticks per 1 cpu
 		n.ppu.Ticks(3 * ticks)
-		n.dma.ticks(ticks)
+		n.dma.Ticks(ticks)
 	}
 }
 
 func (n *nes) ApuBufferReady() bool {
-	return n.apu.audioBufferReady()
+	return n.apu.AudioBufferReady()
 }
 
 func (n *nes) runFree() {
@@ -236,3 +259,54 @@ func (n *nes) loadEasyCode(code string) {
 		}
 	}
 }
+
+const (
+	frameXWidth  = 256
+	frameYHeight = 240
+
+	screenFrameRatio = 3
+	screenXWidth     = frameXWidth * screenFrameRatio
+	screenYHeight    = frameYHeight * screenFrameRatio
+)
+
+type NesOpRequest int
+
+const (
+	ResetRequest NesOpRequest = iota
+	SaveRequest
+	LoadRequest
+)
+
+type nes struct {
+	bus common.Bus
+
+	cpu  cpu.Cpu
+	ram  common.Ram
+	cart mappers.Cartridge
+	ppu  ppu.Ppu
+	dma  common.Dma
+	apu  apu.Apu
+	ctrl common.Controllers
+
+	screen screen
+
+	opRequests NesOpRequest
+
+	// Options
+	verbose     bool
+	cartPath    string
+	freeRun     bool
+	audioLib    speakers.AudioLib
+	audioLog    bool
+	spriteLimit bool
+}
+
+const (
+	MapCPUId = iota
+	MapPPUId
+	MapDMAId
+	MapAPUId
+)
+
+const NesBaseFrequency = 1789773 // NTSC
+//const NesBaseFrequency = 1662607 // PAL

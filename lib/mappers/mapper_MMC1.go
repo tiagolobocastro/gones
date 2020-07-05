@@ -3,7 +3,7 @@ package mappers
 import (
 	"log"
 
-	"github.com/tiagolobocastro/gones/nes/common"
+	"github.com/tiagolobocastro/gones/lib/common"
 )
 
 type MapperMMC1 struct {
@@ -26,7 +26,7 @@ type MapperMMC1 struct {
 	chrBanks [2]uint16
 }
 
-func (m *MapperMMC1) Step() {}
+func (m *MapperMMC1) Tick() {}
 
 func (m *MapperMMC1) Init() {
 	m.writeInner(0x8000, 0x1F)

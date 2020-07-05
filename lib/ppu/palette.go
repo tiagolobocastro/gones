@@ -6,8 +6,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/tiagolobocastro/gones/nes/common"
-	"github.com/tiagolobocastro/gones/nes/mappers"
+	"github.com/tiagolobocastro/gones/lib/common"
+	"github.com/tiagolobocastro/gones/lib/mappers"
 )
 
 type ppuPalette struct {

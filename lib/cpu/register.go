@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/tiagolobocastro/gones/nes/common"
+	"github.com/tiagolobocastro/gones/lib/common"
 )
 
 const (

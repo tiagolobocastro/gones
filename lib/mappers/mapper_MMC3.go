@@ -2,7 +2,7 @@ package mappers
 
 import (
 	"fmt"
-	"github.com/tiagolobocastro/gones/nes/common"
+	"github.com/tiagolobocastro/gones/lib/common"
 )
 
 type MapperMMC3 struct {
@@ -21,7 +21,7 @@ type MapperMMC3 struct {
 	chrBanks [8]uint32
 }
 
-func (m *MapperMMC3) Step() {
+func (m *MapperMMC3) Tick() {
 
 }
 

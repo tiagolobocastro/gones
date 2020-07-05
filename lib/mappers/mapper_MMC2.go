@@ -2,7 +2,7 @@ package mappers
 
 import (
 	"fmt"
-	"github.com/tiagolobocastro/gones/nes/common"
+	"github.com/tiagolobocastro/gones/lib/common"
 )
 
 type MapperMMC2 struct {
@@ -22,7 +22,7 @@ type MapperMMC2 struct {
 	latch [2]uint8
 }
 
-func (m *MapperMMC2) Step() {}
+func (m *MapperMMC2) Tick() {}
 
 func (m *MapperMMC2) Init() {
 	m.latch[0] = 0xFD

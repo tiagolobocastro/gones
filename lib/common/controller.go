@@ -1,18 +1,14 @@
-package gones
-
-import (
-	"github.com/tiagolobocastro/gones/nes/common"
-)
+package common
 
 const (
-	bitA = iota
-	bitB
-	bitSelect
-	bitStart
-	bitUp
-	bitDown
-	bitLeft
-	bitRight
+	BitA = iota
+	BitB
+	BitSelect
+	BitStart
+	BitUp
+	BitDown
+	BitLeft
+	BitRight
 )
 
 type nesController struct {
@@ -20,26 +16,26 @@ type nesController struct {
 	targetBit uint8
 }
 
-func (n *nesController) Serialise(s common.Serialiser) error {
+func (n *nesController) Serialise(s Serialiser) error {
 	return s.Serialise(n.buttons, n.targetBit)
 }
-func (n *nesController) DeSerialise(s common.Serialiser) error {
+func (n *nesController) DeSerialise(s Serialiser) error {
 	return s.DeSerialise(&n.buttons, &n.targetBit)
 }
 
-type controllers struct {
+type Controllers struct {
 	controllers [2]nesController
 	strobe      uint8
 }
 
-func (c *controllers) Serialise(s common.Serialiser) error {
+func (c *Controllers) Serialise(s Serialiser) error {
 	for _, e := range c.controllers {
 		e.Serialise(s)
 	}
 	s.Serialise(c.strobe)
 	return nil
 }
-func (c *controllers) DeSerialise(s common.Serialiser) error {
+func (c *Controllers) DeSerialise(s Serialiser) error {
 	for _, e := range c.controllers {
 		e.DeSerialise(s)
 	}
@@ -47,7 +43,7 @@ func (c *controllers) DeSerialise(s common.Serialiser) error {
 	return nil
 }
 
-func (c *controllers) readButton(controllerId uint8) uint8 {
+func (c *Controllers) readButton(controllerId uint8) uint8 {
 	controller := &c.controllers[controllerId]
 
 	if controller.targetBit < 8 {
@@ -60,17 +56,17 @@ func (c *controllers) readButton(controllerId uint8) uint8 {
 	}
 }
 
-func (c *controllers) init() {
+func (c *Controllers) Init() {
 	c.controllers = [2]nesController{}
 	c.strobe = 0
 }
 
-func (c *controllers) Reset() {
-	c.init()
+func (c *Controllers) Reset() {
+	c.Init()
 }
 
 // use interface
-func (c *controllers) poke(controllerId uint8, button uint8, pressed bool) {
+func (c *Controllers) Poke(controllerId uint8, button uint8, pressed bool) {
 	// strobing does not really work because we cannot access the "screen"
 	// where the control logic is implemented, so it's the screen that pokes us
 	controller := &c.controllers[controllerId]
@@ -82,7 +78,7 @@ func (c *controllers) poke(controllerId uint8, button uint8, pressed bool) {
 }
 
 // BusInt
-func (c *controllers) Read8(addr uint16) uint8 {
+func (c *Controllers) Read8(addr uint16) uint8 {
 
 	val := uint8(0)
 	switch addr {
@@ -97,7 +93,7 @@ func (c *controllers) Read8(addr uint16) uint8 {
 	return val
 }
 
-func (c *controllers) Write8(addr uint16, val uint8) {
+func (c *Controllers) Write8(addr uint16, val uint8) {
 	switch addr {
 	case 0x4016:
 		// if strobe set start polling the buttons

@@ -3,8 +3,8 @@ package ppu
 import (
 	"image/color"
 
-	"github.com/tiagolobocastro/gones/nes/common"
-	"github.com/tiagolobocastro/gones/nes/cpu"
+	"github.com/tiagolobocastro/gones/lib/common"
+	"github.com/tiagolobocastro/gones/lib/cpu"
 )
 
 // http://wiki.nesdev.com/w/index.php/PPU_OAM

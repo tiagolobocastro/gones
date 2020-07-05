@@ -3,14 +3,14 @@ package mappers
 import (
 	"log"
 
-	"github.com/tiagolobocastro/gones/nes/common"
+	"github.com/tiagolobocastro/gones/lib/common"
 )
 
 type MapperNROM struct {
 	cart *Cartridge
 }
 
-func (m *MapperNROM) Step() {}
+func (m *MapperNROM) Tick() {}
 
 func (m *MapperNROM) Init() {}
 

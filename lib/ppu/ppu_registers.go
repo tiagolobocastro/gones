@@ -1,8 +1,8 @@
 package ppu
 
 import (
-	"github.com/tiagolobocastro/gones/nes/common"
-	"github.com/tiagolobocastro/gones/nes/cpu"
+	"github.com/tiagolobocastro/gones/lib/common"
+	"github.com/tiagolobocastro/gones/lib/cpu"
 )
 
 const (

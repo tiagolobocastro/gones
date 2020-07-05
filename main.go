@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"os"
 
-	gones "github.com/tiagolobocastro/gones/nes"
+	gones "github.com/tiagolobocastro/gones/lib"
+	"github.com/tiagolobocastro/gones/lib/speakers"
 )
 
-const defaultAudioLibrary = gones.Beep
+const defaultAudioLibrary = speakers.Beep
 
 func validateINesPath(romPath string) error {
-
 	stat, err := os.Stat(romPath)
 	if err != nil {
 		return fmt.Errorf("iNes Rom file path (\"%v\") does not exist or is not valid", romPath)

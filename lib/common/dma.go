@@ -1,10 +1,8 @@
-package gones
-
-import "github.com/tiagolobocastro/gones/nes/common"
+package common
 
 // BusInt
-type dma struct {
-	common.BusInt
+type Dma struct {
+	BusInt
 
 	clock uint
 
@@ -18,40 +16,40 @@ type dma struct {
 	delay bool
 }
 
-func (d *dma) Serialise(s common.Serialiser) error {
+func (d *Dma) Serialise(s Serialiser) error {
 	return s.Serialise(d.clock, d.nBytes, d.byteRd, d.cpuAddr, d.ppuAddr, d.delay)
 }
-func (d *dma) DeSerialise(s common.Serialiser) error {
+func (d *Dma) DeSerialise(s Serialiser) error {
 	return s.DeSerialise(&d.clock, &d.nBytes, &d.byteRd, &d.cpuAddr, &d.ppuAddr, &d.delay)
 }
 
-func (d *dma) init(busInt common.BusInt) {
+func (d *Dma) Init(busInt BusInt) {
 	d.BusInt = busInt
 	d.nBytes = 0
 }
-func (d *dma) reset() {
-	d.init(d.BusInt)
+func (d *Dma) Reset() {
+	d.Init(d.BusInt)
 }
 
-func (d *dma) active() bool {
+func (d *Dma) Active() bool {
 	return d.nBytes > 0
 }
 
-func (d *dma) ticks(nTicks int) {
+func (d *Dma) Ticks(nTicks int) {
 
 	for i := 0; i < nTicks; i++ {
 		d.tick()
 	}
 }
 
-func (d *dma) tick() {
+func (d *Dma) tick() {
 
 	// clock required for the delay logic
 	d.clock++
 	d.exec()
 }
 
-func (d *dma) exec() {
+func (d *Dma) exec() {
 
 	if d.nBytes > 0 {
 
@@ -77,17 +75,17 @@ func (d *dma) exec() {
 	}
 }
 
-func (d *dma) setupTransfer(cpuAddr uint16) {
+func (d *Dma) setupTransfer(cpuAddr uint16) {
 	d.cpuAddr = cpuAddr
 	d.ppuAddr = 0x2004 // OAMDATA
 	d.nBytes = 256
 }
 
-func (d *dma) Read8(addr uint16) uint8 {
+func (d *Dma) Read8(addr uint16) uint8 {
 	return 0
 }
 
-func (d *dma) Write8(addr uint16, val uint8) {
+func (d *Dma) Write8(addr uint16, val uint8) {
 	switch addr {
 	case 0x4014:
 		d.setupTransfer(uint16(val) << 8)

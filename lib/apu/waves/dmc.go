@@ -1,6 +1,6 @@
 package waves
 
-import "github.com/tiagolobocastro/gones/nes/common"
+import "github.com/tiagolobocastro/gones/lib/common"
 
 type Dmc struct {
 	common.BusInt

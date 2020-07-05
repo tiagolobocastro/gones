@@ -1,13 +1,27 @@
 package gones
 
 import (
-	"github.com/tiagolobocastro/gones/nes/cpu"
+	"github.com/tiagolobocastro/gones/lib/cpu"
+	"github.com/tiagolobocastro/gones/lib/speakers"
 	"strings"
 	"testing"
 )
 
-func Test_newNes(t *testing.T) {
-	nes := NewNES(Verbose(false))
+// the test code needs to access the internal type
+func newNES(options ...func(*nes) error) *nes {
+	nes := &nes{}
+	nes.audioLib = speakers.Nil
+
+	if err := nes.setOptions(options...); err != nil {
+		panic(err)
+	}
+
+	nes.init()
+	return nes
+}
+
+func Test_newNES(t *testing.T) {
+	nes := newNES(Verbose(false))
 	if nes == nil {
 		t.Errorf("failed to get nes!")
 	}
@@ -49,8 +63,8 @@ func testCpuTest(nes *nes, t *testing.T, cpuTest cpuTest) {
 }
 
 // should be able to generate the tests for similar fn's, ld*,st*
-func Test_newNes_RunOpTest(t *testing.T) {
-	nes := NewNES(Verbose(false))
+func Test_newNES_RunOpTest(t *testing.T) {
+	nes := newNES(Verbose(false))
 	if nes == nil {
 		t.Fatalf("failed to get nes!")
 	}
@@ -170,7 +184,7 @@ func Test_newNes_RunOpTest(t *testing.T) {
 }
 
 func Test_JMP(t *testing.T) {
-	nes := NewNES(Verbose(false))
+	nes := newNES(Verbose(false))
 	if nes == nil {
 		t.Fatalf("failed to get nes!")
 	}
@@ -194,7 +208,7 @@ func Test_JMP(t *testing.T) {
 }
 
 func Test_LA(t *testing.T) {
-	nes := NewNES(Verbose(false))
+	nes := newNES(Verbose(false))
 	if nes == nil {
 		t.Fatalf("failed to get nes!")
 	}
