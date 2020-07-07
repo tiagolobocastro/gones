@@ -295,7 +295,12 @@ func (a *Apu) raiseIrq() {
 }
 
 func (a *Apu) Read8(addr uint16) uint8 {
-	log.Printf("Error: Reading from the APU addr %X\n", addr)
+	switch {
+	case addr == 0x4015:
+		return a.status.Read()
+	default:
+		log.Printf("Error: Reading from the APU addr %X\n", addr)
+	}
 	return 0
 }
 func (a *Apu) Write8(addr uint16, val uint8) {

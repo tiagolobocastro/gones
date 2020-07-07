@@ -8,12 +8,13 @@ type NameTableMirroring uint8
 
 // NameTable Mirroring
 const (
-	HorizontalMirroring = iota
+	HorizontalMirroring NameTableMirroring = iota
 	VerticalMirroring
 	SingleScreenMirroring
 	// To support this mode we might either need another module in the mapper or
 	// give this one access to the cartridge
 	QuadScreenMirroring
+	QuadScreenMirroringOnly
 )
 
 // busInt
@@ -31,7 +32,8 @@ func (n *NameTables) DeSerialise(s Serialiser) error {
 }
 
 func (n *NameTables) Init(defaultMirror NameTableMirroring) {
-	n.vRam.Init(0x800)
+	// todo: when to use double (for Quad Mirroring)
+	n.vRam.Init(0x800 * 2)
 	n.Mirroring = defaultMirror
 }
 
@@ -84,7 +86,18 @@ func (n *NameTables) decode(addr uint16) uint16 {
 		panic("Not implemented")
 	case QuadScreenMirroring:
 		// CIRAM is disabled, and the cartridge contains additional VRAM used for all nametables
-		panic("Not implemented")
+		switch table {
+		case 0:
+			table = 0
+		case 1:
+			table = 1
+		case 2:
+			table = 2
+		case 3:
+			table = 3
+		default:
+			panic("Invalid nametable address")
+		}
 	}
 	return (table * 0x400) + addr
 }

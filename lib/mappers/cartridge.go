@@ -101,7 +101,8 @@ func (c *Cartridge) Init(cartPath string, nes NesView) error {
 		c.prgRam.LoadFromFile(c.getRamSaveFile())
 	}
 
-	c.chr.Init(c.config.chrRomSize, false)
+	// todo: when is this "rom" writable??
+	c.chr.Init(c.config.chrRomSize, true)
 	if _, err = c.chr.LoadFromFile(file); err != nil {
 		return err
 	}

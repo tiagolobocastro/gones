@@ -2,28 +2,40 @@ package mappers
 
 import (
 	"fmt"
+
 	"github.com/tiagolobocastro/gones/lib/common"
+	"github.com/tiagolobocastro/gones/lib/cpu"
 )
 
 type MapperMMC3 struct {
 	cart *Cartridge
 
 	bankMode      uint8
-	bankData      uint8
 	prgRamProtect uint8
 	irqLatch      uint8
-	irqReload     uint8
+	irqReload     bool
 	irqDisable    bool
 	mirror        uint8
 	registers     [8]uint8
 
 	prgBanks [4]uint32
 	chrBanks [8]uint32
+
+	irqCounter uint8
 }
 
 func (m *MapperMMC3) Tick() {
-	if m.cart.nes.PPU().ScanLine > 100 {
+	if m.cart.nes.PPU().A12OutputHigh() {
+		if m.irqCounter == 0 || m.irqReload {
+			m.irqCounter = m.irqLatch
+			m.irqReload = false
+		} else {
+			m.irqCounter--
+		}
 
+		if m.irqCounter == 0 && !m.irqDisable {
+			m.cart.nes.CPU().Raise(cpu.CpuIntIRQ)
+		}
 	}
 }
 
@@ -58,7 +70,6 @@ func (m *MapperMMC3) writeInner(addr uint16, val uint8) {
 	case addr >= 0xE000 && addr <= 0xFFFF && odd:
 		m.writeIrqEnable(val)
 	}
-	m.updateAllBanks()
 }
 
 func (m *MapperMMC3) updateAllBanks() {
@@ -92,6 +103,7 @@ func (m *MapperMMC3) updateAllBanks() {
 //                                  four 1 KB banks at $0000-$0FFF)
 func (m *MapperMMC3) writeBankSelect(val uint8) {
 	m.bankMode = val
+	m.updateAllBanks()
 }
 
 // Bank data ($8001-$9FFF, odd)
@@ -102,8 +114,8 @@ func (m *MapperMMC3) writeBankSelect(val uint8) {
 // |||| ||||
 // ++++-++++- New bank value, based on last value written to Bank select register (mentioned above)
 func (m *MapperMMC3) writeBankData(val uint8) {
-	m.bankData = val
-	m.registers[m.bankMode&7] = m.bankData
+	m.registers[m.bankMode&7] = val
+	m.updateAllBanks()
 }
 
 func (m *MapperMMC3) bank(register int) uint32 {
@@ -119,16 +131,18 @@ func (m *MapperMMC3) updateChrBank(register int) {
 	if !chrInversion {
 		switch register {
 		case 0, 1:
-			m.chrBanks[0+register*2] = m.bank(register) * 0x400
-			m.chrBanks[1+register*2] = m.bank(register)*0x400 + 0x400
+			// 2KB CHR banks may only select even numbered CHR banks.
+			// (The lowest bit is ignored.)
+			m.chrBanks[0+register*2] = (m.bank(register) & 0xFE) * 0x400
+			m.chrBanks[1+register*2] = (m.bank(register) | 1) * 0x400
 		case 2, 3, 4, 5:
 			m.chrBanks[register+2] = m.bank(register) * 0x400
 		}
 	} else {
 		switch register {
 		case 0, 1:
-			m.chrBanks[4+register*2] = m.bank(register) * 0x400
-			m.chrBanks[5+register*2] = m.bank(register)*0x400 + 0x400
+			m.chrBanks[4+register*2] = (m.bank(register) & 0xFE) * 0x400
+			m.chrBanks[5+register*2] = (m.bank(register) | 1) * 0x400
 		case 2, 3, 4, 5:
 			m.chrBanks[register-2] = m.bank(register) * 0x400
 		}
@@ -174,6 +188,11 @@ func (m *MapperMMC3) updatePgrBank(register int) {
 //         |
 //         +- Select nametable mirroring (0: vertical; 1: horizontal)
 func (m *MapperMMC3) writeMirroring(val uint8) {
+	// QuadScreen only
+	if (m.cart.config.mirror & 0x2) != 0 {
+		return
+	}
+
 	m.mirror = val & 0x3
 	switch m.mirror {
 	case 0:
@@ -212,7 +231,7 @@ func (m *MapperMMC3) writeIrqLatch(val uint8) {
 // the NEXT rising edge of the PPU address, presumably at
 // PPU cycle 260 of the current scanline.
 func (m *MapperMMC3) writeIrqReload(val uint8) {
-	m.irqReload = val
+	m.irqReload = true
 }
 
 // IRQ disable ($E000-$FFFE, even)
@@ -220,6 +239,7 @@ func (m *MapperMMC3) writeIrqReload(val uint8) {
 // acknowledge any pending interrupts.
 func (m *MapperMMC3) writeIrqDisable(val uint8) {
 	m.irqDisable = true
+	m.cart.nes.CPU().Clear(cpu.CpuIntIRQ)
 }
 
 // IRQ enable ($E001-$FFFF, odd)
@@ -252,8 +272,7 @@ func (m *MapperMMC3) Read8(addr uint16) uint8 {
 	case addr >= 0x8000:
 		bank := (addr - 0x8000) / 0x2000
 		offset := uint32(addr-0x8000) % 0x2000
-		r := m.cart.prgRom.Read8w(m.prgBanks[bank] + offset)
-		return r
+		return m.cart.prgRom.Read8w(m.prgBanks[bank] + offset)
 
 	default:
 		panic(fmt.Sprintf("read not implemented for 0x%04x!", addr))
@@ -278,13 +297,13 @@ func (m *MapperMMC3) Write8(addr uint16, val uint8) {
 
 func (m *MapperMMC3) Serialise(s common.Serialiser) error {
 	return s.Serialise(
-		m.bankMode, m.bankData, m.prgRamProtect, m.irqLatch,
-		m.mirror, m.registers, m.prgBanks, m.chrBanks,
+		m.bankMode, m.prgRamProtect, m.irqLatch, m.irqReload, m.irqDisable,
+		m.irqCounter, m.mirror, m.registers, m.prgBanks, m.chrBanks,
 	)
 }
 func (m *MapperMMC3) DeSerialise(s common.Serialiser) error {
 	return s.DeSerialise(
-		&m.bankMode, &m.bankData, &m.prgRamProtect, &m.irqLatch,
-		&m.mirror, &m.registers, &m.prgBanks, &m.chrBanks,
+		&m.bankMode, &m.prgRamProtect, &m.irqLatch, &m.irqReload, &m.irqDisable,
+		&m.irqCounter, &m.mirror, &m.registers, &m.prgBanks, &m.chrBanks,
 	)
 }

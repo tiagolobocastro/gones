@@ -141,6 +141,10 @@ func (m *MapperMMC2) writeCHRBankE1(val uint8) {
 //         |
 //         +- Select nametable mirroring (0: vertical; 1: horizontal)
 func (m *MapperMMC2) writeMirroring(val uint8) {
+	// QuadScreen only
+	if (m.cart.config.mirror & 0x2) != 0 {
+		return
+	}
 	m.mirror = val & 0x3
 	switch m.mirror {
 	case 0:

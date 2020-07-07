@@ -172,8 +172,10 @@ func (n *nes) Step(seconds float64) {
 		}
 
 		// 3 ppu ticks per 1 cpu
-		n.ppu.Ticks(3 * ticks)
-		n.cart.Ticks(3 * ticks)
+		for i := 0; i < 3*ticks; i++ {
+			n.ppu.Ticks(1)
+			n.cart.Ticks(1)
+		}
 
 		n.dma.Ticks(ticks)
 

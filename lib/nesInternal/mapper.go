@@ -27,6 +27,8 @@ func (m *cpuMapper) Read8(addr uint16) uint8 {
 	case addr < 0x4000:
 		return m.nes.ppu.Read8(addr)
 
+	case addr == 0x4015:
+		return m.nes.apu.Read8(addr)
 	case addr < 0x4016:
 		// read from APU and I-O
 		log.Panicf("read to address 0x%04x not implemented", addr)
