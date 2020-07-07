@@ -13,6 +13,7 @@ import (
 	"github.com/tiagolobocastro/gones/lib/mappers"
 	"github.com/tiagolobocastro/gones/lib/ppu"
 	"github.com/tiagolobocastro/gones/lib/speakers"
+	"github.com/tiagolobocastro/gones/lib/ui"
 )
 
 type GoNes struct {
@@ -34,20 +35,27 @@ func (n *nes) Stop() {
 	n.apu.Stop()
 }
 
-func (n *nes) Request(request NesOpRequest) {
-	n.opRequests |= 1 << request
+func (n *nes) Request(request common.NesOpRequest) {
+	switch request {
+	case common.StopRequest:
+		// invoke stop right away
+		// todo: Stop properly!
+		n.Stop()
+	default:
+		n.opRequests |= 1 << request
+	}
 }
 
 func (n *nes) Reset() {
-	n.opRequests |= 1 << ResetRequest
+	n.opRequests |= 1 << common.ResetRequest
 }
 
 func (n *nes) Save() {
-	n.opRequests |= 1 << SaveRequest
+	n.opRequests |= 1 << common.SaveRequest
 }
 
 func (n *nes) Load() {
-	n.opRequests |= 1 << LoadRequest
+	n.opRequests |= 1 << common.LoadRequest
 }
 
 func (n *nes) Poke(controllerId uint8, button uint8, pressed bool) {
@@ -55,7 +63,7 @@ func (n *nes) Poke(controllerId uint8, button uint8, pressed bool) {
 }
 
 func (n *nes) Run() {
-	n.screen.run()
+	n.screen.Run()
 	if n.freeRun == true {
 		n.runFree()
 	} else {
@@ -96,10 +104,10 @@ func (n *nes) init() {
 	n.ram.Init(0x800)
 
 	n.ctrl.Init()
-	n.screen.init(n)
+	n.screen.Init(n)
 
 	n.cpu.Init(n.bus.GetBusInt(MapCPUId), n.verbose)
-	n.ppu.Init(n.bus.GetBusInt(MapPPUId), &n.cpu, n.verbose, &n.screen.framebuffer, n.spriteLimit)
+	n.ppu.Init(n.bus.GetBusInt(MapPPUId), &n.cpu, n.verbose, &n.screen.Framebuffer, n.spriteLimit)
 	n.dma.Init(n.bus.GetBusInt(MapDMAId))
 	n.apu.Init(n.bus.GetBusInt(MapAPUId), &n.cpu, n.verbose, n.audioLog, n.audioLib)
 
@@ -119,7 +127,7 @@ func (n *nes) reset() {
 	n.ctrl.Reset()
 	n.cart.Reset()
 
-	n.opRequests &= ^(1 << ResetRequest)
+	n.opRequests &= ^(1 << common.ResetRequest)
 }
 
 func (n *nes) save() {
@@ -127,7 +135,7 @@ func (n *nes) save() {
 	if err != nil {
 		log.Printf("Failed to Save State: %v", err)
 	}
-	n.opRequests &= ^(1 << SaveRequest)
+	n.opRequests &= ^(1 << common.SaveRequest)
 }
 
 func (n *nes) load() {
@@ -137,7 +145,7 @@ func (n *nes) load() {
 	if err := n.DeSerialise(common.NewSerialiser(n.cart.GetStateSaveFile())); err != nil {
 		log.Printf("Failed to Load State: %v", err)
 	}
-	n.opRequests &= ^(1 << LoadRequest)
+	n.opRequests &= ^(1 << common.LoadRequest)
 }
 
 func (n *nes) Serialise(s common.Serialiser) error {
@@ -191,11 +199,11 @@ func (n *nes) Step(seconds float64) {
 
 func (n *nes) processOpRequest() {
 	switch {
-	case n.opRequests&(1<<ResetRequest) != 0:
+	case n.opRequests&(1<<common.ResetRequest) != 0:
 		n.reset()
-	case n.opRequests&(1<<SaveRequest) != 0:
+	case n.opRequests&(1<<common.SaveRequest) != 0:
 		n.save()
-	case n.opRequests&(1<<LoadRequest) != 0:
+	case n.opRequests&(1<<common.LoadRequest) != 0:
 		n.load()
 	}
 }
@@ -263,23 +271,6 @@ func (n *nes) loadEasyCode(code string) {
 	}
 }
 
-const (
-	frameXWidth  = 256
-	frameYHeight = 240
-
-	screenFrameRatio = 3
-	screenXWidth     = frameXWidth * screenFrameRatio
-	screenYHeight    = frameYHeight * screenFrameRatio
-)
-
-type NesOpRequest int
-
-const (
-	ResetRequest NesOpRequest = iota
-	SaveRequest
-	LoadRequest
-)
-
 type nes struct {
 	bus common.Bus
 
@@ -291,9 +282,9 @@ type nes struct {
 	apu  apu.Apu
 	ctrl common.Controllers
 
-	screen screen
+	screen ui.Screen
 
-	opRequests NesOpRequest
+	opRequests common.NesOpRequest
 
 	// Options
 	verbose     bool

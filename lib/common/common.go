@@ -18,3 +18,17 @@ type Framebuffer struct {
 	// number of frames
 	Frames int
 }
+
+const (
+	FrameXWidth  = 256
+	FrameYHeight = 240
+)
+
+type NesOpRequest int
+
+const (
+	ResetRequest NesOpRequest = iota
+	SaveRequest
+	LoadRequest
+	StopRequest
+)

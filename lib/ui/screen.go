@@ -1,4 +1,4 @@
-package nesInternal
+package ui
 
 import (
 	"fmt"
@@ -13,8 +13,19 @@ import (
 	"github.com/tiagolobocastro/gones/lib/common"
 )
 
-type screen struct {
-	nes *nes
+const (
+	screenFrameRatio = 3
+	screenXWidth     = common.FrameXWidth * screenFrameRatio
+	screenYHeight    = common.FrameYHeight * screenFrameRatio
+)
+
+type GoNes interface {
+	Poke(controllerId uint8, button uint8, pressed bool)
+	Request(request common.NesOpRequest)
+}
+
+type Screen struct {
+	nes GoNes
 
 	// window where we draw the sprite
 	window *pixelgl.Window
@@ -24,27 +35,27 @@ type screen struct {
 	buffer1 *pixel.PictureData
 	sprite  *pixel.Sprite
 
-	framebuffer common.Framebuffer
+	Framebuffer common.Framebuffer
 
 	// FPS stats
 	fpsChannel   <-chan time.Time
 	fpsLastFrame int
 }
 
-func (s *screen) Serialise(sr common.Serialiser) error {
-	return sr.Serialise(s.buffer0, s.buffer1, s.framebuffer.FrameIndex)
+func (s *Screen) Serialise(sr common.Serialiser) error {
+	return sr.Serialise(s.buffer0, s.buffer1, s.Framebuffer.FrameIndex)
 }
-func (s *screen) DeSerialise(sr common.Serialiser) error {
-	return sr.DeSerialise(&s.buffer0, &s.buffer1, &s.framebuffer.FrameIndex)
+func (s *Screen) DeSerialise(sr common.Serialiser) error {
+	return sr.DeSerialise(&s.buffer0, &s.buffer1, &s.Framebuffer.FrameIndex)
 }
 
-func (s *screen) init(nes *nes) {
+func (s *Screen) Init(nes GoNes) {
 	s.nes = nes
 
 	s.setSprite()
 }
 
-func (s *screen) run() {
+func (s *Screen) Run() {
 	go func() {
 		runtime.LockOSThread()
 		pixelgl.Run(s.runThread)
@@ -52,7 +63,7 @@ func (s *screen) run() {
 	}()
 }
 
-func (s *screen) runThread() {
+func (s *Screen) runThread() {
 	cfg := pixelgl.WindowConfig{
 		Title:  "GoNes",
 		Bounds: pixel.R(0, 0, screenXWidth, screenYHeight),
@@ -70,13 +81,13 @@ func (s *screen) runThread() {
 	s.runner()
 }
 
-func (s *screen) runner() {
+func (s *Screen) runner() {
 	lastLoopFrames := 0
 	for !s.window.Closed() {
 
-		<-s.framebuffer.FrameUpdated
+		<-s.Framebuffer.FrameUpdated
 
-		frameDiff := s.framebuffer.Frames - lastLoopFrames
+		frameDiff := s.Framebuffer.Frames - lastLoopFrames
 		if frameDiff > 0 {
 			if frameDiff > 1 {
 				fmt.Printf("Oops, skipped %v frames!\n", frameDiff)
@@ -84,16 +95,16 @@ func (s *screen) runner() {
 
 			s.draw()
 			s.window.Update()
-			lastLoopFrames = s.framebuffer.Frames
+			lastLoopFrames = s.Framebuffer.Frames
 		}
 
 		s.updateFpsTitle()
 		s.updateControllers()
 	}
 	// wait for nes to halt on "sync"
-	for len(s.framebuffer.FrameUpdated) != 0 {
+	for len(s.Framebuffer.FrameUpdated) != 0 {
 	}
-	s.nes.Stop()
+	s.nes.Request(common.StopRequest)
 }
 
 var buttons = [8]struct {
@@ -110,7 +121,7 @@ var buttons = [8]struct {
 	{common.BitRight, pixelgl.KeyRight},
 }
 
-func (s *screen) updateControllers() {
+func (s *Screen) updateControllers() {
 	onePressed := false
 	for _, button := range buttons {
 		pressed := s.window.Pressed(button.key)
@@ -121,17 +132,17 @@ func (s *screen) updateControllers() {
 	}
 
 	if s.window.Pressed(pixelgl.KeyLeftControl) && s.window.JustPressed(pixelgl.KeyR) {
-		s.nes.Request(ResetRequest)
+		s.nes.Request(common.ResetRequest)
 		onePressed = true
 	}
 	if s.window.JustPressed(pixelgl.KeyLeftControl) && s.window.Pressed(pixelgl.KeyS) ||
 		s.window.JustPressed(pixelgl.KeyS) && s.window.Pressed(pixelgl.KeyLeftControl) {
-		s.nes.Request(SaveRequest)
+		s.nes.Request(common.SaveRequest)
 		onePressed = true
 	}
 	if s.window.JustPressed(pixelgl.KeyLeftControl) && s.window.Pressed(pixelgl.KeyL) ||
 		s.window.JustPressed(pixelgl.KeyL) && s.window.Pressed(pixelgl.KeyLeftControl) {
-		s.nes.Request(LoadRequest)
+		s.nes.Request(common.LoadRequest)
 		onePressed = true
 	}
 
@@ -140,48 +151,48 @@ func (s *screen) updateControllers() {
 	}
 }
 
-func (s *screen) updateFpsTitle() {
+func (s *Screen) updateFpsTitle() {
 	select {
 	case <-s.fpsChannel:
-		frames := s.framebuffer.Frames - s.fpsLastFrame
-		s.fpsLastFrame = s.framebuffer.Frames
+		frames := s.Framebuffer.Frames - s.fpsLastFrame
+		s.fpsLastFrame = s.Framebuffer.Frames
 
 		s.window.SetTitle(fmt.Sprintf("GoNes | FPS: %d", frames))
 	default:
 	}
 }
 
-func (s *screen) draw() {
+func (s *Screen) draw() {
 	// seems to be required, for reasons unknown
 	s.updateSprite()
 
 	s.sprite.Draw(s.window, pixel.IM.Moved(s.window.Bounds().Center()).ScaledXY(s.window.Bounds().Center(), pixel.V(3, 3)))
 }
 
-func (s *screen) updateSprite() {
-	if s.framebuffer.FrameIndex == 1 {
+func (s *Screen) updateSprite() {
+	if s.Framebuffer.FrameIndex == 1 {
 		// ppu is drawing new pixels on buffer1, which means the stable data is in buffer0
-		s.sprite = pixel.NewSprite(s.buffer0, pixel.R(0, 0, frameXWidth, frameYHeight))
+		s.sprite = pixel.NewSprite(s.buffer0, pixel.R(0, 0, common.FrameXWidth, common.FrameYHeight))
 	} else {
-		s.sprite = pixel.NewSprite(s.buffer1, pixel.R(0, 0, frameXWidth, frameYHeight))
+		s.sprite = pixel.NewSprite(s.buffer1, pixel.R(0, 0, common.FrameXWidth, common.FrameYHeight))
 	}
 }
 
-func (s *screen) setSprite() {
+func (s *Screen) setSprite() {
 
 	s.buffer0 = &pixel.PictureData{
-		Pix:    make([]color.RGBA, frameXWidth*frameYHeight),
-		Stride: frameXWidth,
-		Rect:   pixel.R(0, 0, frameXWidth, frameYHeight),
+		Pix:    make([]color.RGBA, common.FrameXWidth*common.FrameYHeight),
+		Stride: common.FrameXWidth,
+		Rect:   pixel.R(0, 0, common.FrameXWidth, common.FrameYHeight),
 	}
 
 	s.buffer1 = &pixel.PictureData{
-		Pix:    make([]color.RGBA, frameXWidth*frameYHeight),
-		Stride: frameXWidth,
-		Rect:   pixel.R(0, 0, frameXWidth, frameYHeight),
+		Pix:    make([]color.RGBA, common.FrameXWidth*common.FrameYHeight),
+		Stride: common.FrameXWidth,
+		Rect:   pixel.R(0, 0, common.FrameXWidth, common.FrameYHeight),
 	}
 
-	s.framebuffer = common.Framebuffer{
+	s.Framebuffer = common.Framebuffer{
 		Buffer0:      s.buffer0.Pix,
 		Buffer1:      s.buffer1.Pix,
 		FrameIndex:   0,
